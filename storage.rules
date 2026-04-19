@@ -1,0 +1,174 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Check C-Level roles in direksi database (direction_users collection)
+    function isCLevelInDireksi() {
+      let direksiDoc = firestore.get(/databases/(direksi)/documents/direction_users/$(request.auth.uid));
+      return isSignedIn() && direksiDoc != null && direksiDoc.data.primaryRole in [
+        'ADMIN', 'CEO', 'COO', 'CFO', 'CTO', 'CMO', 'HR', 'SECRETARY'
+      ];
+    }
+
+    function isCOODireksi() {
+      let direksiDoc = firestore.get(/databases/(direksi)/documents/direction_users/$(request.auth.uid));
+      return isSignedIn() && direksiDoc != null && direksiDoc.data.primaryRole == 'COO';
+    }
+
+    function isCTODireksi() {
+      let direksiDoc = firestore.get(/databases/(direksi)/documents/direction_users/$(request.auth.uid));
+      return isSignedIn() && direksiDoc != null && direksiDoc.data.primaryRole == 'CTO';
+    }
+
+    function isCFODireksi() {
+      let direksiDoc = firestore.get(/databases/(direksi)/documents/direction_users/$(request.auth.uid));
+      return isSignedIn() && direksiDoc != null && direksiDoc.data.primaryRole == 'CFO';
+    }
+
+    function isHRDireksi() {
+      let direksiDoc = firestore.get(/databases/(direksi)/documents/direction_users/$(request.auth.uid));
+      return isSignedIn() && direksiDoc != null && direksiDoc.data.primaryRole == 'HR';
+    }
+
+    function isCMODireksi() {
+      let direksiDoc = firestore.get(/databases/(direksi)/documents/direction_users/$(request.auth.uid));
+      return isSignedIn() && direksiDoc != null && direksiDoc.data.primaryRole == 'CMO';
+    }
+
+    // All C-Level roles (can clock attendance)
+    function isCLevel() {
+      // Check direksi database for C-Level ERP users (ADMIN, CEO, COO, CFO, CTO, CMO, HR, SECRETARY)
+      let direksiUserDoc = firestore.get(/databases/(direksi)/documents/direction_users/$(request.auth.uid));
+      if (isSignedIn() && direksiUserDoc != null && direksiUserDoc.data.role in [
+          'ADMIN', 'CEO', 'COO', 'CFO', 'CTO', 'CMO', 'HR', 'SECRETARY'
+      ]) {
+        return true;
+      }
+      // Check default database for SUPER_ADMIN and legacy ERP roles
+      let userDoc = firestore.get(/databases/(default)/documents/users/$(request.auth.uid));
+      return isSignedIn() && userDoc != null && userDoc.data.role in [
+          'SUPER_ADMIN',
+          'ERP_SUPER_ADMIN', 'ERP_HR', 'ERP_FINANCE', 'ERP_MANAGER', 
+          'DRIVER_OPS', 'MERCHANT_OPS', 'TECH_TEAM', 'FINANCE'
+      ];
+    }
+
+    // HR only (can upload employee documents)
+    function isHR() {
+      // Check direksi database for C-Level HR
+      let direksiUserDoc = firestore.get(/databases/(direksi)/documents/direction_users/$(request.auth.uid));
+      if (isSignedIn() && direksiUserDoc != null && direksiUserDoc.data.role == 'HR') {
+        return true;
+      }
+      // Check default database for ERP_HR and SUPER_ADMIN
+      let userDoc = firestore.get(/databases/(default)/documents/users/$(request.auth.uid));
+      return isSignedIn() && userDoc != null && userDoc.data.role in ['ERP_HR', 'SUPER_ADMIN'];
+    }
+
+    // CEO, HR, CTO, and CFO (can view all attendance records)
+    function isCEOorHR() {
+      // Check direksi database for CEO, HR, CTO, and CFO
+      let direksiUserDoc = firestore.get(/databases/(direksi)/documents/direction_users/$(request.auth.uid));
+      if (isSignedIn() && direksiUserDoc != null && direksiUserDoc.data.role in ['CEO', 'HR', 'CTO', 'CFO']) {
+        return true;
+      }
+      // Check default database for ERP_HR and SUPER_ADMIN
+      let userDoc = firestore.get(/databases/(default)/documents/users/$(request.auth.uid));
+      return isSignedIn() && userDoc != null && userDoc.data.role in ['ERP_HR', 'SUPER_ADMIN'];
+    }
+
+    function isSuperAdmin() {
+      // SUPER_ADMIN is always in default database (legacy system)
+      let userDoc = firestore.get(/databases/(default)/documents/users/$(request.auth.uid));
+      return isSignedIn() && (
+        request.auth.token.role == 'SUPER_ADMIN' ||
+        (userDoc != null && userDoc.data.role == 'SUPER_ADMIN')
+      );
+    }
+
+    function isCTO() {
+      // CTO is in direksi database (C-Level ERP)
+      let direksiUserDoc = firestore.get(/databases/(direksi)/documents/direction_users/$(request.auth.uid));
+      if (isSignedIn() && direksiUserDoc != null && direksiUserDoc.data.role == 'CTO') {
+        return true;
+      }
+      // Check auth token for legacy fallback
+      return isSignedIn() && request.auth.token.role == 'CTO';
+    }
+
+    function isRestaurant() {
+      let userDoc = firestore.get(/databases/(default)/documents/users/$(request.auth.uid));
+      return isSignedIn() && userDoc != null && userDoc.data.role == 'RESTAURANT';
+    }
+
+    // ========== C-LEVEL ATTENDANCE PHOTOS ==========
+    // Foto absensi - SEMUA C-LEVEL bisa upload (absen)
+    match /internal/karyawan/absen/{fileName} {
+      allow read: if isCEOorHR();  // Only CEO and HR can view all photos
+      allow create: if isCLevel() && request.resource.size < 5 * 1024 * 1024; // Max 5MB, all C-Level can upload
+      allow delete: if isSuperAdmin();
+    }
+
+    // ========== HR EMPLOYEE DOCUMENTS ==========
+    // Dokumen karyawan (CV, surat, foto administrasi) - HR ONLY
+    match /internal/karyawan/administrasi/{employeeId}/{documentType}/{fileName} {
+      allow read: if isHR() || isSuperAdmin();
+      allow create, update: if isHR() && request.resource.size < 10 * 1024 * 1024; // Max 10MB, HR only
+      allow delete: if isHR() || isSuperAdmin();
+    }
+
+    // Dokumen direksi (C-Level)
+    match /director_documents/{userId}/{fileName} {
+      allow read: if isCLevel();
+      allow create, update: if isCLevel() && request.resource.size < 20 * 1024 * 1024; // Max 20MB
+      allow delete: if isSuperAdmin() || (isSignedIn() && request.auth.uid == userId);
+    }
+
+    // ========== CUSTOMER / RESTAURANT UPLOADS ==========
+    // Public read for all assets
+    match /{allPaths=**} {
+      allow read: if true;
+    }
+
+    // Banners (Admin only)
+    match /banners/{allPaths=**} {
+      allow write: if isCLevel();
+    }
+
+    // Driver documents (Admin only)
+    match /drivers/{allPaths=**} {
+      allow write: if isCLevel();
+    }
+
+    // Restaurant documents (Admin or owner)
+    match /restaurants/{restaurantId}/{allPaths=**} {
+      allow write: if isCLevel() || (isSignedIn() && request.auth.uid == restaurantId);
+    }
+
+    // Room images (Admin or restaurant)
+    match /rooms/{allPaths=**} {
+      allow write: if isCLevel() || isRestaurant();
+    }
+
+    // Menu images (Admin or restaurant)
+    match /menus/{allPaths=**} {
+      allow write: if isCLevel() || isRestaurant();
+    }
+
+    // User avatars (Owner only)
+    match /avatars/{userId}/{allPaths=**} {
+      allow write: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    // OTA Updates (SuperAdmin or CTO only, max 100MB)
+    match /ota_updates/{allPaths=**} {
+      allow write: if (isSuperAdmin() || isCTO()) && request.resource.size < 100 * 1024 * 1024;
+    }
+
+  }
+}

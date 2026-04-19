@@ -1,0 +1,261 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isBootstrapDocId() {
+      return resource == null
+        ? request.resource.id in ['current', 'main', 'live', 'template', 'baseline', 'registry']
+        : resource.id in ['current', 'main', 'live', 'template', 'baseline', 'registry'];
+    }
+
+    function isValidDireksiRole(role) {
+      return role in ['CEO', 'COO', 'CTO', 'CFO', 'CMO', 'HR', 'SECRETARY'];
+    }
+
+    function isKnownDireksiUser() {
+      return isAuthenticated()
+        && exists(/databases/$(database)/documents/direction_users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/direction_users/$(request.auth.uid)).data.isActive == true
+        && get(/databases/$(database)/documents/direction_users/$(request.auth.uid)).data.isSuspended != true;
+    }
+
+    function isBootstrapSetupCollection() {
+      return request.path.segments[3] in [
+        'database_blueprint_meta',
+        'database_blueprints',
+        'executive_overview',
+        'coo_operational_summary',
+        'cfo_financial_summary',
+        'cto_system_summary',
+        'sync_state',
+        'director_roles',
+        'role_permissions',
+        'director_profiles',
+        'meeting_minutes',
+        'dispositions',
+        'acknowledgements',
+        'approval_requests',
+        'approval_activity_logs',
+        'director_documents',
+        'notifications',
+        'executive_tasks',
+        'risk_register',
+        'decision_archives',
+        'board_packs',
+        'system_logs',
+        'system_alerts',
+        'system_errors',
+        'system_backups',
+        'system_incidents',
+        'sync_jobs',
+        'merchant_health_cache',
+        'driver_health_cache',
+        'settlement_summary',
+        'financial_reports',
+        'cmo_growth_summary',
+        'hr_people_summary'
+      ];
+    }
+
+    function isBootstrapWrite() {
+      return !isAuthenticated()
+        && isBootstrapSetupCollection()
+        && (
+          request.path.segments.size() <= 5
+          || (
+            request.path.segments.size() == 7
+            && request.path.segments[3] == 'database_blueprints'
+            && request.path.segments[5] == 'collections'
+          )
+        );
+    }
+
+    // Bootstrap access for setup page before first director account exists.
+    match /database_blueprint_meta/{docId} {
+      allow read, write: if isKnownDireksiUser() || docId == 'current';
+    }
+
+    match /database_blueprints/{categoryId} {
+      allow read, write: if isKnownDireksiUser() || true;
+
+      match /collections/{collectionId} {
+        allow read, write: if isKnownDireksiUser() || true;
+      }
+    }
+
+    // Allow first account bootstrap and normal authenticated reads/writes.
+    match /direction_users/{uid} {
+      allow read: if isKnownDireksiUser() || (isAuthenticated() && request.auth.uid == uid);
+
+      allow create: if isAuthenticated()
+        && request.auth.uid == uid
+        && isValidDireksiRole(request.resource.data.primaryRole)
+        && request.resource.data.roles is list;
+
+      allow update, delete: if isKnownDireksiUser();
+    }
+
+    // Singleton/bootstrap docs can be provisioned before login.
+    match /executive_overview/{docId} {
+      allow read, write: if isKnownDireksiUser() || docId in ['main', 'template'];
+    }
+
+    match /coo_operational_summary/{docId} {
+      allow read, write: if isKnownDireksiUser() || docId in ['live', 'template'];
+    }
+
+    match /cfo_financial_summary/{docId} {
+      allow read, write: if isKnownDireksiUser() || docId in ['current', 'template'];
+    }
+
+    match /cto_system_summary/{docId} {
+      allow read, write: if isKnownDireksiUser() || docId in ['current', 'template'];
+    }
+
+    match /sync_state/{docId} {
+      allow read, write: if isKnownDireksiUser() || docId == 'current';
+    }
+
+    match /director_roles/{docId} {
+      allow read, write: if isKnownDireksiUser() || docId in ['registry', 'template'];
+    }
+
+    match /role_permissions/{docId} {
+      allow read, write: if isKnownDireksiUser() || docId in ['baseline', 'template'];
+    }
+
+    match /director_profiles/{docId} {
+      allow read, write: if isKnownDireksiUser() || docId == 'template';
+    }
+
+    match /meeting_minutes/{docId} {
+      allow read, write: if isKnownDireksiUser() || docId == 'template';
+    }
+
+    match /dispositions/{docId} {
+      allow read, write: if isKnownDireksiUser() || docId == 'template';
+    }
+
+    match /acknowledgements/{docId} {
+      allow read, write: if isKnownDireksiUser() || docId == 'template';
+    }
+
+    match /approval_requests/{docId} {
+      allow read, write: if isKnownDireksiUser() || docId == 'template';
+    }
+
+    match /approval_activity_logs/{docId} {
+      allow read, write: if isKnownDireksiUser() || docId == 'template';
+    }
+
+    match /director_documents/{docId} {
+      allow read, write: if isKnownDireksiUser() || docId == 'template';
+    }
+
+    match /notifications/{docId} {
+      allow read, write: if isKnownDireksiUser() || docId == 'template';
+    }
+
+    match /executive_tasks/{docId} {
+      allow read, write: if isKnownDireksiUser() || docId == 'template';
+    }
+
+    match /risk_register/{docId} {
+      allow read, write: if isKnownDireksiUser() || docId == 'template';
+    }
+
+    match /decision_archives/{docId} {
+      allow read, write: if isKnownDireksiUser() || docId == 'template';
+    }
+
+    match /board_packs/{docId} {
+      allow read, write: if isKnownDireksiUser() || docId == 'template';
+    }
+
+    match /system_logs/{docId} {
+      allow read, write: if isKnownDireksiUser() || docId == 'template';
+    }
+
+    match /system_alerts/{docId} {
+      allow read, write: if isKnownDireksiUser() || docId == 'template';
+    }
+
+    match /system_errors/{docId} {
+      allow read, write: if isKnownDireksiUser() || docId == 'template';
+    }
+
+    match /system_backups/{docId} {
+      allow read, write: if isKnownDireksiUser() || docId == 'template';
+    }
+
+    match /system_incidents/{docId} {
+      allow read, write: if isKnownDireksiUser() || docId == 'template';
+    }
+
+    match /sync_jobs/{docId} {
+      allow read, write: if isKnownDireksiUser() || docId == 'template';
+    }
+
+    match /merchant_health_cache/{docId} {
+      allow read, write: if isKnownDireksiUser() || docId == 'template';
+    }
+
+    match /driver_health_cache/{docId} {
+      allow read, write: if isKnownDireksiUser() || docId == 'template';
+    }
+
+    match /settlement_summary/{docId} {
+      allow read, write: if isKnownDireksiUser() || docId == 'template';
+    }
+
+    match /financial_reports/{docId} {
+      allow read, write: if isKnownDireksiUser() || docId == 'template';
+    }
+
+    match /cmo_growth_summary/{docId} {
+      allow read, write: if isKnownDireksiUser() || docId in ['current', 'template'];
+    }
+
+    match /hr_people_summary/{docId} {
+      allow read, write: if isKnownDireksiUser() || docId in ['current', 'template'];
+    }
+
+    // Working collections after bootstrap.
+    match /meeting_requests/{docId} {
+      allow read, write: if isKnownDireksiUser();
+    }
+
+    match /meeting_agendas/{docId} {
+      allow read, write: if isKnownDireksiUser();
+    }
+
+    match /meeting_action_items/{docId} {
+      allow read, write: if isKnownDireksiUser();
+    }
+
+    match /letters/{docId} {
+      allow read, write: if isKnownDireksiUser();
+    }
+
+    match /cmo_campaigns/{docId} {
+      allow read, write: if isKnownDireksiUser();
+    }
+
+    match /director_chat_rooms/{roomId} {
+      allow read, write: if isKnownDireksiUser();
+
+      match /messages/{messageId} {
+        allow read, write: if isKnownDireksiUser();
+      }
+    }
+
+    // Default deny.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

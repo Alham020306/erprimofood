@@ -1,0 +1,63 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // C-Level roles dari auth token (tanpa Firestore lookup)
+    function isCLevel() {
+      return isSignedIn() && request.auth.token.role in [
+        'ADMIN', 'CEO', 'COO', 'CFO', 'CTO', 'CMO', 'HR', 'SECRETARY',
+        'SUPER_ADMIN', 'ERP_SUPER_ADMIN', 'ERP_HR', 'ERP_FINANCE', 
+        'ERP_MANAGER', 'DRIVER_OPS', 'MERCHANT_OPS', 'TECH_TEAM', 'FINANCE'
+      ];
+    }
+
+    function isSuperAdmin() {
+      return isSignedIn() && request.auth.token.role == 'SUPER_ADMIN';
+    }
+
+    // ========== ATTENDANCE PHOTOS ==========
+    match /internal/karyawan/absen/{fileName} {
+      allow read: if isCLevel();
+      allow create: if isCLevel() && request.resource.size < 5 * 1024 * 1024;
+      allow delete: if isSuperAdmin();
+    }
+
+    // ========== CUSTOMER / RESTAURANT UPLOADS ==========
+    match /{allPaths=**} {
+      allow read: if true;
+    }
+
+    match /banners/{allPaths=**} {
+      allow write: if isCLevel();
+    }
+
+    match /drivers/{allPaths=**} {
+      allow write: if isCLevel();
+    }
+
+    match /restaurants/{restaurantId}/{allPaths=**} {
+      allow write: if isCLevel() || (isSignedIn() && request.auth.uid == restaurantId);
+    }
+
+    match /rooms/{allPaths=**} {
+      allow write: if isCLevel();
+    }
+
+    match /menus/{allPaths=**} {
+      allow write: if isCLevel();
+    }
+
+    match /avatars/{userId}/{allPaths=**} {
+      allow write: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    match /ota_updates/{allPaths=**} {
+      allow write: if isCLevel() && request.resource.size < 100 * 1024 * 1024;
+    }
+  }
+}
