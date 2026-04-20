@@ -98,7 +98,7 @@ export const useCFOSettlementsV2 = () => {
       collection(dbMain, "users"),
       (snap) => {
         state.drivers = snap.docs
-          .map((d) => ({ id: d.id, ...d.data() }))
+          .map((d) => ({ id: d.id, ...d.data() } as any))
           .filter((u) => String(u.role || "").toUpperCase() === "DRIVER");
         emit();
       },

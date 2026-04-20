@@ -5,7 +5,6 @@ import { loginDirector } from "./useCLevelAuth";
 type Props = {
   onLogin: (user: DirectorUser) => void;
   onGoRegister: () => void;
-  onGoSetup: () => void;
 };
 
 const highlights = [
@@ -17,7 +16,6 @@ const highlights = [
 export default function DirectorLoginPage({
   onLogin,
   onGoRegister,
-  onGoSetup,
 }: Props) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -162,16 +160,6 @@ export default function DirectorLoginPage({
               </button>
             </div>
 
-            <div className="mt-4 rounded-2xl border border-emerald-300/20 bg-emerald-400/10 px-4 py-4 text-sm text-emerald-100">
-              Mau langsung siapkan database `direksi`?
-              <button
-                type="button"
-                onClick={onGoSetup}
-                className="ml-2 font-semibold text-white transition hover:text-emerald-50"
-              >
-                Buka halaman setup
-              </button>
-            </div>
           </div>
         </section>
       </div>

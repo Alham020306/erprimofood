@@ -124,7 +124,7 @@ export default function CFODashboardPage() {
 
   const cashflowHealth = metrics.netCashflow >= 0 ? "emerald" : "rose";
   const CashflowIcon = metrics.netCashflow >= 0 ? TrendingUp : TrendingDown;
-  const isProfitable = metrics.netIncome > 0;
+  const isProfitable = metrics.netCashflow > 0;
 
   return (
     <div className="space-y-6">
@@ -208,7 +208,7 @@ export default function CFODashboardPage() {
         />
         <CompactMetric
           title="Net Income"
-          value={formatCurrency(metrics.netIncome || 0)}
+          value={formatCurrency(metrics.netCashflow || 0)}
           icon={isProfitable ? TrendingUp : TrendingDown}
           tone={isProfitable ? "emerald" : "rose"}
           subtitle={isProfitable ? "Profitable" : "Loss"}
@@ -259,7 +259,7 @@ export default function CFODashboardPage() {
         </div>
         <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-center">
           <div className="text-2xl font-bold text-slate-900">
-            {formatCurrency(metrics.metrics?.averageOrderValue || 0)}
+            {formatCurrency((orderAnalysis?.totalRevenue || 0) / (orderAnalysis?.total || 1))}
           </div>
           <div className="text-xs text-slate-500">Avg Order</div>
         </div>

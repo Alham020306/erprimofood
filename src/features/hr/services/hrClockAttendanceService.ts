@@ -519,6 +519,7 @@ export const getAttendanceStats = (
   absentDays: number;
   sickDays: number;
   leaveDays: number;
+  wfaDays: number;
   averageWorkHours: number;
 } => {
   const totalDays = records.length;
@@ -527,6 +528,7 @@ export const getAttendanceStats = (
   const absentDays = records.filter((r) => r.status === "ABSENT").length;
   const sickDays = records.filter((r) => r.status === "SICK").length;
   const leaveDays = records.filter((r) => r.status === "LEAVE").length;
+  const wfaDays = records.filter((r) => r.status === "WFA").length;
   
   const totalWorkHours = records.reduce((acc, r) => acc + (r.workDurationHours || 0), 0);
   const averageWorkHours = totalDays > 0 ? totalWorkHours / totalDays : 0;
@@ -538,6 +540,7 @@ export const getAttendanceStats = (
     absentDays,
     sickDays,
     leaveDays,
+    wfaDays,
     averageWorkHours: Math.round(averageWorkHours * 100) / 100,
   };
 };

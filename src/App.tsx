@@ -67,7 +67,6 @@ export default function App() {
     <DirectorLoginPage
       onLogin={setUser}
       onGoRegister={() => setMode("register")}
-      onGoSetup={() => setMode("setup")}
     />
   );
 }

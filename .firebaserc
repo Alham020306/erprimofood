@@ -1,0 +1,15 @@
+{
+  "projects": {
+    "default": "rimofood-2be7f"
+  },
+  "targets": {
+    "rimofood-2be7f": {
+      "hosting": {
+        "erprimo-app": [
+          "erprimo-app"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}

@@ -61,6 +61,7 @@ export default function CFOFundRequestsPage({ user }: Props) {
     await createManualTransaction({
       ...transactionData,
       amount: Number(transactionData.amount),
+      category: transactionData.category as any,
     }, user);
     setShowNewTransaction(false);
     setTransactionData({ type: "IN", category: "ORDER_COMMISSION", amount: "", description: "", reference: "" });
