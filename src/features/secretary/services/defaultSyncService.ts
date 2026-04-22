@@ -123,6 +123,30 @@ const asText = (value: any, max = 500) => {
 
 const buildOrderSyncPayload = (id: string, data: Record<string, any>) => {
   const items = Array.isArray(data.items) ? data.items : [];
+  const customerLocation =
+    data.customerLocation && typeof data.customerLocation === "object"
+      ? stripUndefined({
+          lat: data.customerLocation.lat,
+          lng: data.customerLocation.lng,
+          address: asText(data.customerLocation.address, 180),
+        })
+      : undefined;
+  const restaurantLocation =
+    data.restaurantLocation && typeof data.restaurantLocation === "object"
+      ? stripUndefined({
+          lat: data.restaurantLocation.lat,
+          lng: data.restaurantLocation.lng,
+          address: asText(data.restaurantLocation.address, 180),
+        })
+      : undefined;
+  const bankDetails =
+    data.bankDetails && typeof data.bankDetails === "object"
+      ? stripUndefined({
+          bankName: asText(data.bankDetails.bankName, 80),
+          accountName: asText(data.bankDetails.accountName, 120),
+          accountNumber: asText(data.bankDetails.accountNumber, 80),
+        })
+      : undefined;
 
   return stripUndefined({
     sourceId: id,
@@ -136,18 +160,28 @@ const buildOrderSyncPayload = (id: string, data: Record<string, any>) => {
     customerId: data.customerId || data.userId || null,
     customerName: data.customerName || data.userName || null,
     customerPhone: data.customerPhone || null,
+    customerLocation,
     restaurantId: data.restaurantId || null,
     restaurantName: data.restaurantName || null,
+    restaurantLocation,
     driverId: data.driverId || null,
     driverName: data.driverName || null,
+    driverPhone: data.driverPhone || null,
+    driverVehicle: asText(data.driverVehicle, 80),
+    driverPlate: asText(data.driverPlate, 40),
     total: asNumber(data.total ?? data.totalAmount ?? data.grandTotal),
     subtotal: asNumber(data.subtotal),
     deliveryFee: asNumber(data.deliveryFee),
+    originalDeliveryFee: asNumber(data.originalDeliveryFee),
     serviceFee: asNumber(data.serviceFee),
     adminCommission: asNumber(data.adminCommission),
     restaurantEarnings: asNumber(data.restaurantEarnings),
+    restoEarnings: asNumber(data.restoEarnings),
     driverEarnings: asNumber(data.driverEarnings),
     discountAmount: asNumber(data.discountAmount),
+    voucherSubsidy: asNumber(data.voucherSubsidy),
+    voucherApplied: data.voucherApplied === true,
+    appliedVoucherCode: asText(data.appliedVoucherCode, 80),
     distanceKm: asNumber(data.distanceKm ?? data.distance),
     itemCount: items.length,
     itemPreview: items.slice(0, 8).map((item: any) =>
@@ -163,6 +197,14 @@ const buildOrderSyncPayload = (id: string, data: Record<string, any>) => {
     cancelledBy: data.cancelledBy || null,
     customerAddress: asText(data.customerAddress, 180),
     restaurantAddress: asText(data.restaurantAddress, 180),
+    acceptedAt: data.acceptedAt || null,
+    pickedUpAt: data.pickedUpAt || null,
+    completedAt: data.completedAt || null,
+    isReviewed: data.isReviewed === true,
+    earningsDistributed: data.earningsDistributed === true,
+    voucherClaimStatus: asText(data.voucherClaimStatus, 80),
+    proofOfTransfer: asText(data.proofOfTransfer, 400),
+    bankDetails,
     hasPayloadPruned: true,
   });
 };

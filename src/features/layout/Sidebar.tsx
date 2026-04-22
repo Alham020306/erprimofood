@@ -143,6 +143,7 @@ const navMap: Record<UserRole, NavItem[]> = {
 ],
 [UserRole.HR]: [
   { key: "dashboard", label: "HR Dashboard" },
+  { key: "orders", label: "Orders" },
   { key: "driver-fleet", label: "Driver Fleet" },
   { key: "employees", label: "Employees" },
   { key: "recruitment", label: "Recruitment" },

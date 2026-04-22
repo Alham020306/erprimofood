@@ -36,6 +36,7 @@ import HRRecruitmentPage from "../hr/pages/HRRecruitmentPage";
 import HREmployeesPage from "../hr/pages/HREmployeesPage";
 import HRAttendancePage from "../hr/pages/HRAttendancePage";
 import HRClockAttendancePage from "../hr/pages/HRClockAttendancePage";
+import HROrdersPage from "../hr/pages/HROrdersPage";
 import SecretaryDashboardPage from "../secretary/pages/SecretaryDashboardPage";
 import MerchantManagementPage from "../management/pages/MerchantManagementPage";
 import DriverManagementPage from "../management/pages/DriverManagementPage";
@@ -250,6 +251,8 @@ const renderHR = () => {
   switch (activePage) {
     case "dashboard":
       return <HRDashboardPage />;
+    case "orders":
+      return <HROrdersPage />;
     case "driver-fleet":
       return <DriverManagementPage user={user} />;
     case "employees":
