@@ -200,6 +200,15 @@ service cloud.firestore {
       allow read, write: if isKnownDireksiUser() || docId == 'template';
     }
 
+    match /default_sync_tables/{docId} {
+      allow read, write: if isKnownDireksiUser();
+    }
+
+    match /{collectionId}/{docId} {
+      allow read, write: if isKnownDireksiUser()
+        && collectionId.matches('^sync_.*$');
+    }
+
     match /merchant_health_cache/{docId} {
       allow read, write: if isKnownDireksiUser() || docId == 'template';
     }

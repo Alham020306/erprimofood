@@ -102,9 +102,70 @@ const DEFAULT_SYNC_TABLES: SyncTableDefinition[] = [
 ];
 
 const liveSyncUnsubscribers = new Map<string, Unsubscribe>();
-const SYNC_META_DOC_ID = "__sync_meta__";
+const SYNC_META_DOC_ID = "sync_meta";
 
 const isMetaDocId = (id: string) => id === SYNC_META_DOC_ID;
+
+const stripUndefined = (value: Record<string, any>) =>
+  Object.fromEntries(
+    Object.entries(value).filter(([, entry]) => entry !== undefined)
+  );
+
+const asNumber = (value: any) => {
+  const normalized = Number(value);
+  return Number.isFinite(normalized) ? normalized : 0;
+};
+
+const asText = (value: any, max = 500) => {
+  if (typeof value !== "string") return value ?? null;
+  return value.length > max ? `${value.slice(0, max)}…` : value;
+};
+
+const buildOrderSyncPayload = (id: string, data: Record<string, any>) => {
+  const items = Array.isArray(data.items) ? data.items : [];
+
+  return stripUndefined({
+    sourceId: id,
+    orderNumber: data.orderNumber || data.code || null,
+    status: data.status || null,
+    type: data.type || data.orderType || null,
+    paymentMethod: data.paymentMethod || null,
+    paymentStatus: data.paymentStatus || null,
+    timestamp: data.timestamp || null,
+    updatedAt: data.updatedAt || data.timestamp || null,
+    customerId: data.customerId || data.userId || null,
+    customerName: data.customerName || data.userName || null,
+    customerPhone: data.customerPhone || null,
+    restaurantId: data.restaurantId || null,
+    restaurantName: data.restaurantName || null,
+    driverId: data.driverId || null,
+    driverName: data.driverName || null,
+    total: asNumber(data.total ?? data.totalAmount ?? data.grandTotal),
+    subtotal: asNumber(data.subtotal),
+    deliveryFee: asNumber(data.deliveryFee),
+    serviceFee: asNumber(data.serviceFee),
+    adminCommission: asNumber(data.adminCommission),
+    restaurantEarnings: asNumber(data.restaurantEarnings),
+    driverEarnings: asNumber(data.driverEarnings),
+    discountAmount: asNumber(data.discountAmount),
+    distanceKm: asNumber(data.distanceKm ?? data.distance),
+    itemCount: items.length,
+    itemPreview: items.slice(0, 8).map((item: any) =>
+      stripUndefined({
+        name: asText(item?.name || item?.menuName || "Item", 80),
+        quantity: asNumber(item?.quantity || 1),
+        price: asNumber(item?.price),
+      })
+    ),
+    note: asText(data.note, 300),
+    cancellationReason: asText(data.cancellationReason, 300),
+    cancelledAt: data.cancelledAt || null,
+    cancelledBy: data.cancelledBy || null,
+    customerAddress: asText(data.customerAddress, 180),
+    restaurantAddress: asText(data.restaurantAddress, 180),
+    hasPayloadPruned: true,
+  });
+};
 
 const normalizeForFingerprint = (value: any): any => {
   if (value === null || value === undefined) {
@@ -134,6 +195,42 @@ const normalizeForFingerprint = (value: any): any => {
 
 const createFingerprint = (value: Record<string, any>) =>
   JSON.stringify(normalizeForFingerprint(value));
+
+const buildFallbackPayload = (
+  table: SyncTableDefinition,
+  id: string,
+  data: Record<string, any>
+) =>
+  stripUndefined({
+    sourceId: id,
+    sourceCollection: table.source,
+    status: data.status || null,
+    updatedAt: data.updatedAt || data.timestamp || null,
+    title: asText(data.title || data.name || data.restaurantName || data.fullName, 120),
+    restaurantId: data.restaurantId || null,
+    driverId: data.driverId || null,
+    userId: data.userId || data.customerId || null,
+    total: asNumber(data.total ?? data.totalAmount ?? data.grandTotal),
+    itemCount: Array.isArray(data.items) ? data.items.length : 0,
+    oversizedSource: true,
+  });
+
+const buildSyncPayload = (
+  table: SyncTableDefinition,
+  id: string,
+  data: Record<string, any>
+) => {
+  const basePayload =
+    table.key === "orders" ? buildOrderSyncPayload(id, data) : data;
+
+  const payloadSize = createFingerprint(basePayload).length;
+
+  if (payloadSize > 900_000) {
+    return buildFallbackPayload(table, id, data);
+  }
+
+  return basePayload;
+};
 
 const writeSyncTableSeed = async (table: SyncTableDefinition) => {
   await setDoc(
@@ -255,7 +352,7 @@ const upsertCollectionIncremental = async (table: SyncTableDefinition) => {
   };
 
   for (const sourceDoc of sourceSnap.docs) {
-    const sourceData = sourceDoc.data();
+    const sourceData = buildSyncPayload(table, sourceDoc.id, sourceDoc.data());
     const fingerprint = createFingerprint(sourceData);
     const existing = targetMap.get(sourceDoc.id);
     const existingFingerprint = existing?._syncMeta?.sourceFingerprint;
@@ -343,15 +440,20 @@ const upsertSingleDocumentIncremental = async (table: SyncTableDefinition) => {
   }
 
   const sourceData = sourceSnap.data();
+  const syncPayload = buildSyncPayload(
+    table,
+    table.sourceDocId || table.targetDocId || "current",
+    sourceData
+  );
   const targetData = targetSnap.exists() ? targetSnap.data() : null;
-  const fingerprint = createFingerprint(sourceData);
+  const fingerprint = createFingerprint(syncPayload);
   const existingFingerprint = targetData?._syncMeta?.sourceFingerprint;
 
   if (existingFingerprint !== fingerprint) {
     await setDoc(
       targetRef,
       {
-        ...sourceData,
+        ...syncPayload,
         _syncMeta: {
           sourceDatabase: "default",
           sourceCollection: table.source,
@@ -397,7 +499,8 @@ const syncChangedDoc = async (
   id: string,
   data: Record<string, any>
 ) => {
-  const fingerprint = createFingerprint(data);
+  const syncPayload = buildSyncPayload(table, id, data);
+  const fingerprint = createFingerprint(syncPayload);
   const targetDocId = table.kind === "document" ? table.targetDocId! : id;
   const targetRef = doc(dbCLevel, table.target, targetDocId);
   const existing = await getDoc(targetRef);
@@ -412,7 +515,7 @@ const syncChangedDoc = async (
   await setDoc(
     targetRef,
     {
-      ...data,
+      ...syncPayload,
       _syncMeta: {
         sourceDatabase: "default",
         sourceCollection: table.source,
@@ -524,29 +627,47 @@ export const startDefaultLiveSync = async () => {
     const unsubscribe =
       table.kind === "document"
         ? onSnapshot(doc(dbMain, table.source, table.sourceDocId!), async (snap) => {
-            if (!snap.exists()) return;
+            try {
+              if (!snap.exists()) return;
 
-            const wrote = await syncChangedDoc(table, table.sourceDocId!, snap.data());
-            await updateTableStatus(table, {
-              liveSyncEnabled: true,
-              lastLiveEventAt: Date.now(),
-              lastLiveEventAtServer: serverTimestamp(),
-              status: wrote ? "LIVE_SYNCED" : "LIVE_IDLE",
-            });
+              const wrote = await syncChangedDoc(table, table.sourceDocId!, snap.data());
+              await updateTableStatus(table, {
+                liveSyncEnabled: true,
+                lastLiveEventAt: Date.now(),
+                lastLiveEventAtServer: serverTimestamp(),
+                status: wrote ? "LIVE_SYNCED" : "LIVE_IDLE",
+              });
+            } catch (error: any) {
+              console.error(`Live sync failed for ${table.key}:`, error);
+              await updateTableStatus(table, {
+                status: "FAILED",
+                liveSyncEnabled: true,
+                lastError: error?.message || String(error),
+              });
+            }
           })
         : onSnapshot(collection(dbMain, table.source), async (snap) => {
-            for (const change of snap.docChanges()) {
-              if (change.type === "removed") continue;
-              await syncChangedDoc(table, change.doc.id, change.doc.data());
-            }
+            try {
+              for (const change of snap.docChanges()) {
+                if (change.type === "removed") continue;
+                await syncChangedDoc(table, change.doc.id, change.doc.data());
+              }
 
-            await updateTableStatus(table, {
-              liveSyncEnabled: true,
-              sourceCount: snap.size,
-              lastLiveEventAt: Date.now(),
-              lastLiveEventAtServer: serverTimestamp(),
-              status: "LIVE_SYNCED",
-            });
+              await updateTableStatus(table, {
+                liveSyncEnabled: true,
+                sourceCount: snap.size,
+                lastLiveEventAt: Date.now(),
+                lastLiveEventAtServer: serverTimestamp(),
+                status: "LIVE_SYNCED",
+              });
+            } catch (error: any) {
+              console.error(`Live sync failed for ${table.key}:`, error);
+              await updateTableStatus(table, {
+                status: "FAILED",
+                liveSyncEnabled: true,
+                lastError: error?.message || String(error),
+              });
+            }
           });
 
     liveSyncUnsubscribers.set(table.key, unsubscribe);
