@@ -116,6 +116,14 @@ const asNumber = (value: any) => {
   return Number.isFinite(normalized) ? normalized : 0;
 };
 
+const asSafeRemoteUrl = (value: any, max = 2000) => {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim();
+  if (!normalized) return null;
+  if (!/^https?:\/\//i.test(normalized)) return null;
+  return normalized.length > max ? normalized.slice(0, max) : normalized;
+};
+
 const asText = (value: any, max = 500) => {
   if (typeof value !== "string") return value ?? null;
   return value.length > max ? `${value.slice(0, max)}…` : value;
@@ -203,8 +211,7 @@ const buildOrderSyncPayload = (id: string, data: Record<string, any>) => {
     isReviewed: data.isReviewed === true,
     earningsDistributed: data.earningsDistributed === true,
     voucherClaimStatus: asText(data.voucherClaimStatus, 80),
-    proofOfTransfer:
-      typeof data.proofOfTransfer === "string" ? data.proofOfTransfer : null,
+    proofOfTransfer: asSafeRemoteUrl(data.proofOfTransfer),
     bankDetails,
     hasPayloadPruned: true,
   });
@@ -491,8 +498,7 @@ const upsertCollectionIncremental = async (table: SyncTableDefinition) => {
           syncedAt: Date.now(),
           syncedAtServer: serverTimestamp(),
         },
-      },
-      { merge: true }
+      }
     );
 
     if (existing) {
@@ -578,8 +584,7 @@ const upsertSingleDocumentIncremental = async (table: SyncTableDefinition) => {
           syncedAt: Date.now(),
           syncedAtServer: serverTimestamp(),
         },
-      },
-      { merge: true }
+      }
     );
   }
 
@@ -640,8 +645,7 @@ const syncChangedDoc = async (
         syncedAt: Date.now(),
         syncedAtServer: serverTimestamp(),
       },
-    },
-    { merge: true }
+    }
   );
 
   return true;
