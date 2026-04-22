@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { collection, onSnapshot } from "firebase/firestore";
 import {
   getDefaultSyncTableDefinitions,
   isDefaultLiveSyncRunning,
@@ -7,6 +8,23 @@ import {
   startDefaultLiveSync,
   stopDefaultLiveSync,
 } from "../../secretary/services/defaultSyncService";
+import { dbCLevel } from "../../../core/firebase/firebaseCLevel";
+
+const COUNT_TARGETS = [
+  { key: "users", label: "Total User", target: "sync_users" },
+  { key: "restaurants", label: "Total Restoran", target: "sync_restaurants" },
+  { key: "orders", label: "Total Order", target: "sync_orders" },
+  { key: "menus", label: "Total Menu", target: "sync_menus" },
+  { key: "reviews", label: "Total Review", target: "sync_reviews" },
+  { key: "categories", label: "Total Kategori", target: "sync_categories" },
+  { key: "driver_reviews", label: "Total Driver Review", target: "sync_driver_reviews" },
+  {
+    key: "operational_ledger",
+    label: "Total Ledger",
+    target: "sync_operational_ledger",
+  },
+  { key: "banners", label: "Total Banner", target: "sync_banners" },
+] as const;
 
 export default function CTOSyncCenterPage() {
   const [runningAction, setRunningAction] = useState<
@@ -14,8 +32,74 @@ export default function CTOSyncCenterPage() {
   >("");
   const [message, setMessage] = useState("");
   const [liveEnabled, setLiveEnabled] = useState(() => isDefaultLiveSyncRunning());
+  const [syncCounts, setSyncCounts] = useState<Record<string, number>>({});
+  const [countErrors, setCountErrors] = useState<Record<string, string>>({});
+  const [supportStatus, setSupportStatus] = useState<{
+    isOnline: boolean;
+    reason: string;
+    loaded: boolean;
+    error: string;
+  }>({
+    isOnline: false,
+    reason: "",
+    loaded: false,
+    error: "",
+  });
 
   const tables = useMemo(() => getDefaultSyncTableDefinitions(), []);
+
+  useEffect(() => {
+    const unsubscribers = COUNT_TARGETS.map((item) =>
+      onSnapshot(
+        collection(dbCLevel, item.target),
+        (snapshot) => {
+          const total = snapshot.docs.filter((docItem) => docItem.id !== "sync_meta").length;
+          setSyncCounts((prev) => ({ ...prev, [item.key]: total }));
+          setCountErrors((prev) => {
+            const next = { ...prev };
+            delete next[item.key];
+            return next;
+          });
+        },
+        (error) => {
+          setCountErrors((prev) => ({
+            ...prev,
+            [item.key]: error.message || "Tidak bisa membaca collection.",
+          }));
+        }
+      )
+    );
+
+    return () => {
+      unsubscribers.forEach((unsubscribe) => unsubscribe());
+    };
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = onSnapshot(
+      collection(dbCLevel, "sync_system_support"),
+      (snapshot) => {
+        const currentDoc = snapshot.docs.find((docItem) => docItem.id === "current");
+        const data = currentDoc?.data() || {};
+        setSupportStatus({
+          isOnline: data.isOnline === true,
+          reason: typeof data.reason === "string" ? data.reason : "",
+          loaded: true,
+          error: "",
+        });
+      },
+      (error) => {
+        setSupportStatus({
+          isOnline: false,
+          reason: "",
+          loaded: false,
+          error: error.message || "Tidak bisa membaca sync_system_support.",
+        });
+      }
+    );
+
+    return () => unsubscribe();
+  }, []);
 
   const handleSeed = async () => {
     setRunningAction("seed");
@@ -129,6 +213,64 @@ export default function CTOSyncCenterPage() {
                 ? "Stop Auto Sync"
                 : "Start Auto Sync"}
             </button>
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-[2rem] border border-cyan-500/14 bg-slate-950/70 p-6">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.24em] text-cyan-300/80">
+              Sync Totals
+            </p>
+            <h2 className="mt-2 text-xl font-black text-white">
+              Jumlah data hasil sinkronisasi
+            </h2>
+          </div>
+          <div className="rounded-2xl border border-cyan-500/14 bg-slate-900/80 px-4 py-3 text-sm font-semibold text-white">
+            {Object.keys(syncCounts).length}/{COUNT_TARGETS.length} sources loaded
+          </div>
+        </div>
+
+        <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {COUNT_TARGETS.map((item) => (
+            <div
+              key={item.key}
+              className="rounded-[1.5rem] border border-cyan-500/10 bg-slate-900/70 p-5"
+            >
+              <div className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-300/80">
+                {item.target}
+              </div>
+              <div className="mt-3 text-sm font-semibold text-slate-300">{item.label}</div>
+              <div className="mt-3 text-4xl font-black text-white">
+                {countErrors[item.key] ? "-" : syncCounts[item.key] ?? 0}
+              </div>
+              <div className="mt-2 text-xs text-slate-400">
+                {countErrors[item.key]
+                  ? `Gagal baca: ${countErrors[item.key]}`
+                  : "Menghitung semua dokumen hasil mirror, selain sync_meta."}
+              </div>
+            </div>
+          ))}
+          <div className="rounded-[1.5rem] border border-cyan-500/10 bg-slate-900/70 p-5">
+            <div className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-300/80">
+              sync_system_support
+            </div>
+            <div className="mt-3 text-sm font-semibold text-slate-300">Status Support</div>
+            <div className="mt-3 text-2xl font-black text-white">
+              {supportStatus.error
+                ? "-"
+                : supportStatus.loaded
+                ? supportStatus.isOnline
+                  ? "ONLINE"
+                  : "OFFLINE"
+                : "LOADING"}
+            </div>
+            <div className="mt-2 text-xs text-slate-400">
+              {supportStatus.error
+                ? `Gagal baca: ${supportStatus.error}`
+                : supportStatus.reason || "Status sinkronisasi support desk dari dbMain."}
+            </div>
           </div>
         </div>
       </section>
