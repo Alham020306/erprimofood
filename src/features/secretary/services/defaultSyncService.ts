@@ -102,6 +102,9 @@ const DEFAULT_SYNC_TABLES: SyncTableDefinition[] = [
 ];
 
 const liveSyncUnsubscribers = new Map<string, Unsubscribe>();
+const SYNC_META_DOC_ID = "__sync_meta__";
+
+const isMetaDocId = (id: string) => id === SYNC_META_DOC_ID;
 
 const normalizeForFingerprint = (value: any): any => {
   if (value === null || value === undefined) {
@@ -147,6 +150,41 @@ const writeSyncTableSeed = async (table: SyncTableDefinition) => {
       liveSyncEnabled: false,
       updatedAt: Date.now(),
       updatedAtServer: serverTimestamp(),
+    },
+    { merge: true }
+  );
+};
+
+const ensureTargetCollectionExists = async (table: SyncTableDefinition) => {
+  if (table.kind === "document") {
+    await setDoc(
+      doc(dbCLevel, table.target, table.targetDocId!),
+      {
+        _syncMeta: {
+          sourceDatabase: "default",
+          sourceCollection: table.source,
+          bootstrap: true,
+          status: "READY_FOR_SYNC",
+          createdAt: Date.now(),
+          createdAtServer: serverTimestamp(),
+        },
+      },
+      { merge: true }
+    );
+    return;
+  }
+
+  await setDoc(
+    doc(dbCLevel, table.target, SYNC_META_DOC_ID),
+    {
+      _syncMeta: {
+        sourceDatabase: "default",
+        sourceCollection: table.source,
+        bootstrap: true,
+        status: "READY_FOR_SYNC",
+        createdAt: Date.now(),
+        createdAtServer: serverTimestamp(),
+      },
     },
     { merge: true }
   );
@@ -199,6 +237,7 @@ const upsertCollectionIncremental = async (table: SyncTableDefinition) => {
 
   const targetMap = new Map<string, any>();
   targetSnap.forEach((item) => {
+    if (isMetaDocId(item.id)) return;
     targetMap.set(item.id, item.data());
   });
 
@@ -262,7 +301,7 @@ const upsertCollectionIncremental = async (table: SyncTableDefinition) => {
     status: "SYNCED",
     mode: "INCREMENTAL",
     sourceCount: sourceSnap.size,
-    targetCount: targetSnap.size + created,
+    targetCount: targetMap.size + created,
     createdCount: created,
     updatedCount: updated,
     skippedCount: skipped,
@@ -392,6 +431,7 @@ const syncChangedDoc = async (
 export const seedDefaultSyncTables = async () => {
   for (const table of DEFAULT_SYNC_TABLES) {
     await writeSyncTableSeed(table);
+    await ensureTargetCollectionExists(table);
   }
 
   await updateGlobalSyncState({
