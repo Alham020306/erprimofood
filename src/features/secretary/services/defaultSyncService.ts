@@ -314,6 +314,19 @@ const updateTableStatus = async (
   );
 };
 
+const hasSeededSyncData = async (table: SyncTableDefinition) => {
+  if (table.kind === "document") {
+    const snap = await getDoc(doc(dbCLevel, table.target, table.targetDocId!));
+    return snap.exists() && !!snap.data()?._syncMeta?.sourceFingerprint;
+  }
+
+  const snap = await getDocs(collection(dbCLevel, table.target));
+  return snap.docs.some(
+    (item) =>
+      !isMetaDocId(item.id) && !!item.data()?._syncMeta?.sourceFingerprint
+  );
+};
+
 const writeSyncJob = async (
   jobType: string,
   payload: Record<string, any>
@@ -624,6 +637,20 @@ export const startDefaultLiveSync = async () => {
   }
 
   for (const table of DEFAULT_SYNC_TABLES) {
+    try {
+      const alreadySeeded = await hasSeededSyncData(table);
+      if (!alreadySeeded) {
+        await syncSingleTableIncremental(table);
+      }
+    } catch (error: any) {
+      console.error(`Initial sync bootstrap failed for ${table.key}:`, error);
+      await updateTableStatus(table, {
+        status: "FAILED",
+        liveSyncEnabled: false,
+        lastError: error?.message || String(error),
+      });
+    }
+
     const unsubscribe =
       table.kind === "document"
         ? onSnapshot(doc(dbMain, table.source, table.sourceDocId!), async (snap) => {
