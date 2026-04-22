@@ -69,6 +69,7 @@ const iconMap: Record<string, ComponentType<{ className?: string }>> = {
   sheets: FileText,
   insights: ChartColumnBig,
   attendance: Activity,
+  sync: Activity,
 };
 
 const navMap: Record<UserRole, NavItem[]> = {
@@ -107,6 +108,7 @@ const navMap: Record<UserRole, NavItem[]> = {
     { key: "report-to-ceo", label: "📤 Lapor ke CEO" },
   ],
  [UserRole.CTO]: [
+  { key: "sync", label: "Sync Center" },
   { key: "attendance", label: "Attendance" },
   { key: "meetings", label: "Meetings" },
   { key: "approvals", label: "Approvals" },

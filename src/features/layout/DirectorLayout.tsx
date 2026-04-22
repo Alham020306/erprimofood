@@ -52,6 +52,7 @@ const titleMap: Record<string, string> = {
   "fund-management": "Fund Management",
   ledger: "Ledger",
   sheets: "Sheets",
+  sync: "Sync Center",
 };
 
 export default function DirectorLayout({

@@ -43,6 +43,7 @@ import SecretaryLettersPage from "../secretary/pages/SecretaryLettersPage";
 import SecretaryAgendaPage from "../secretary/pages/SecretaryAgendaPage";
 import ExecutiveControlPage from "../executive/pages/ExecutiveControlPage";
 import MeetingSchedulePage from "../meetings/pages/MeetingSchedulePage";
+import CTOSyncCenterPage from "../cto/pages/CTOSyncCenterPage";
 import {
   isDefaultLiveSyncRunning,
   startDefaultLiveSync,
@@ -210,6 +211,8 @@ export default function RoleRouter({ user, onLogout }: Props) {
 
 const renderCTO = () => {
   switch (activePage) {
+    case "sync":
+      return <CTOSyncCenterPage />;
     case "meetings":
       return <MeetingSchedulePage user={user} />;
     case "approvals":
