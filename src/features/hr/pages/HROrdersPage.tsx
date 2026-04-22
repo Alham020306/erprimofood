@@ -100,7 +100,7 @@ export default function HROrdersPage() {
 
   const status = String(selectedOrder?.status ?? "NO STATUS").toUpperCase();
   const itemCount = Number(selectedOrder?.itemCount || selectedOrder?.items?.length || 0);
-  const subtotal = Number(selectedOrder?.subtotal || 0);
+  const subtotal = Number(selectedOrder?.total || 0) - Number(selectedOrder?.deliveryFee || 0);
   const customerLat = safeNumber(selectedOrder?.customerLocation?.lat, 0);
   const customerLng = safeNumber(selectedOrder?.customerLocation?.lng, 0);
   const items = Array.isArray(selectedOrder?.items)
@@ -400,13 +400,15 @@ export default function HROrdersPage() {
                         {[
                           { label: "Subtotal", value: formatMoney(subtotal) },
                           { label: "Delivery Fee", value: formatMoney(selectedOrder.deliveryFee) },
-                          { label: "Service Fee", value: formatMoney(selectedOrder.serviceFee) },
-                          { label: "Discount Amount", value: formatMoney(selectedOrder.discountAmount) },
-                          { label: "Payment Method", value: selectedOrder.paymentMethod || "-" },
-                          { label: "Payment Status", value: selectedOrder.paymentStatus || "-" },
+                          { label: "Original Delivery Fee", value: formatMoney(selectedOrder.originalDeliveryFee) },
+                          { label: "Voucher Subsidy", value: formatMoney(selectedOrder.voucherSubsidy) },
+                          { label: "Voucher Applied", value: selectedOrder.voucherApplied ? "YES" : "NO" },
+                          { label: "Voucher Code", value: selectedOrder.appliedVoucherCode || "-" },
                           { label: "Admin Commission", value: formatMoney(selectedOrder.adminCommission) },
                           { label: "Resto Earnings", value: formatMoney(selectedOrder.restaurantEarnings || selectedOrder.restoEarnings) },
                           { label: "Driver Earnings", value: formatMoney(selectedOrder.driverEarnings) },
+                          { label: "Payment Method", value: selectedOrder.paymentMethod || "-" },
+                          { label: "Payment Status", value: selectedOrder.paymentStatus || "-" },
                         ].map((row) => (
                           <div key={row.label} className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3 text-sm">
                             <span className="text-slate-600">{row.label}</span>

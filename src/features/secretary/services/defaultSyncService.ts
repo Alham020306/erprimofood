@@ -203,7 +203,8 @@ const buildOrderSyncPayload = (id: string, data: Record<string, any>) => {
     isReviewed: data.isReviewed === true,
     earningsDistributed: data.earningsDistributed === true,
     voucherClaimStatus: asText(data.voucherClaimStatus, 80),
-    proofOfTransfer: asText(data.proofOfTransfer, 400),
+    proofOfTransfer:
+      typeof data.proofOfTransfer === "string" ? data.proofOfTransfer : null,
     bankDetails,
     hasPayloadPruned: true,
   });
