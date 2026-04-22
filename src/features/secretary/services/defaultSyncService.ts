@@ -167,6 +167,62 @@ const buildOrderSyncPayload = (id: string, data: Record<string, any>) => {
   });
 };
 
+const buildUserSyncPayload = (id: string, data: Record<string, any>) =>
+  stripUndefined({
+    sourceId: id,
+    uid: data.uid || id,
+    role: data.role || data.primaryRole || null,
+    fullName: asText(
+      data.fullName ||
+        data.name ||
+        data.restaurantName ||
+        data.displayName ||
+        data.ownerName,
+      120
+    ),
+    email: asText(data.email, 160),
+    phoneNumber: asText(data.phoneNumber || data.phone, 40),
+    address: asText(data.address, 200),
+    isActive:
+      typeof data.isActive === "boolean"
+        ? data.isActive
+        : data.isBanned === true
+        ? false
+        : true,
+    isOnline: data.isOnline === true,
+    isVerified: data.isVerified === true,
+    isSuspended: data.isSuspended === true,
+    isBanned: data.isBanned === true,
+    tokenVerified: data.tokenVerified === true,
+    verificationToken: asText(data.verificationToken, 120),
+    appVersion: asText(data.appVersion || data.versionName || data.version, 60),
+    currentVersion: asText(data.currentVersion, 60),
+    updateVersion: asText(data.updateVersion, 60),
+    lastUpdateCheck: data.lastUpdateCheck || null,
+    activatedAt: data.activatedAt || null,
+    lastSeenAt: data.lastSeenAt || null,
+    createdAt: data.createdAt || null,
+    updatedAt: data.updatedAt || data.lastUpdatedAt || null,
+    latitude:
+      typeof data.latitude === "number"
+        ? data.latitude
+        : typeof data.lat === "number"
+        ? data.lat
+        : undefined,
+    longitude:
+      typeof data.longitude === "number"
+        ? data.longitude
+        : typeof data.lng === "number"
+        ? data.lng
+        : undefined,
+    vehicleType: asText(data.vehicleType || data.vehicleName, 80),
+    vehiclePlate: asText(data.vehiclePlate || data.plateNumber, 40),
+    restaurantId: data.restaurantId || null,
+    restaurantName: asText(data.restaurantName, 120),
+    balance: asNumber(data.balance),
+    hasPayloadPruned: true,
+  });
+
 const normalizeForFingerprint = (value: any): any => {
   if (value === null || value === undefined) {
     return value;
@@ -221,7 +277,11 @@ const buildSyncPayload = (
   data: Record<string, any>
 ) => {
   const basePayload =
-    table.key === "orders" ? buildOrderSyncPayload(id, data) : data;
+    table.key === "orders"
+      ? buildOrderSyncPayload(id, data)
+      : table.key === "users"
+      ? buildUserSyncPayload(id, data)
+      : data;
 
   const payloadSize = createFingerprint(basePayload).length;
 
