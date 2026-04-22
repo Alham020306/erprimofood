@@ -103,9 +103,14 @@ export default function CTOConfigPage({ user }: Props) {
     triggerBackup,
     summarySnapshots,
     syncState,
+    runningDefaultSync,
+    defaultLiveSyncEnabled,
     refreshingSummary,
     refreshSummary,
     refreshAllSummaries,
+    seedDefaultSyncRegistry,
+    syncDefaultNow,
+    toggleDefaultLiveSync,
   } = useCTOConfigControl({ user });
 
   const [settingsForm, setSettingsForm] = useState({
@@ -142,6 +147,7 @@ export default function CTOConfigPage({ user }: Props) {
   const [savingZone, setSavingZone] = useState(false);
   const [runningBackupScope, setRunningBackupScope] = useState("");
   const [zoneError, setZoneError] = useState("");
+  const [defaultSyncMessage, setDefaultSyncMessage] = useState("");
 
   useEffect(() => {
     setSettingsForm({
@@ -264,6 +270,31 @@ export default function CTOConfigPage({ user }: Props) {
       },
       raw: rawSnapshot,
     });
+  };
+
+  const handleSeedDefaultSync = async () => {
+    const result = await seedDefaultSyncRegistry();
+    setDefaultSyncMessage(
+      `Registry sync default siap untuk ${result.tableCount} tabel mirror.`
+    );
+  };
+
+  const handleRunDefaultSync = async () => {
+    const result = await syncDefaultNow();
+    setDefaultSyncMessage(
+      result.errors.length
+        ? `Sync selesai dengan kendala. Baru: ${result.created}, update: ${result.updated}, skip: ${result.skipped}.`
+        : `Sync incremental selesai. Baru: ${result.created}, update: ${result.updated}, skip: ${result.skipped}.`
+    );
+  };
+
+  const handleToggleDefaultLiveSync = async () => {
+    const result = await toggleDefaultLiveSync();
+    setDefaultSyncMessage(
+      result.enabled
+        ? `Auto sync default aktif dengan ${result.listenerCount} listener.`
+        : "Auto sync default berhasil dimatikan."
+    );
   };
 
   const saveZoneState = async () => {
@@ -425,6 +456,68 @@ export default function CTOConfigPage({ user }: Props) {
         title="Summary Sync Control"
         subtitle="Refresh cache direksi secara manual dan pantau freshness tiap singleton summary."
       >
+        <div className="mb-4 rounded-3xl border border-cyan-500/14 bg-slate-950/60 p-5">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+            <div className="max-w-3xl">
+              <div className="text-xs uppercase tracking-[0.22em] text-cyan-300/80">
+                default to direksi sync
+              </div>
+              <h3 className="mt-2 text-lg font-semibold text-white">
+                Sinkronisasi incremental dari database utama
+              </h3>
+              <p className="mt-2 text-sm leading-6 text-slate-400">
+                Seed registry mirror `sync_*`, jalankan sinkronisasi manual, atau nyalakan
+                auto sync. Sistem hanya menulis dokumen baru atau berubah dari `dbMain`,
+                tidak rewrite penuh.
+              </p>
+              <p className="mt-2 text-xs text-slate-500">
+                Auto sync berjalan selama sesi aplikasi ini aktif. Jika browser ditutup total,
+                listener ikut berhenti.
+              </p>
+              {defaultSyncMessage ? (
+                <p className="mt-3 text-sm text-cyan-200">{defaultSyncMessage}</p>
+              ) : null}
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={handleSeedDefaultSync}
+                disabled={runningDefaultSync !== ""}
+                className="rounded-2xl border border-indigo-300/30 bg-indigo-500/10 px-5 py-3 text-sm font-semibold text-indigo-200 disabled:opacity-60"
+              >
+                {runningDefaultSync === "seed" ? "Seeding..." : "Seed Sync Tables"}
+              </button>
+              <button
+                type="button"
+                onClick={handleRunDefaultSync}
+                disabled={runningDefaultSync !== ""}
+                className="rounded-2xl border border-cyan-300/30 bg-cyan-500/10 px-5 py-3 text-sm font-semibold text-cyan-200 disabled:opacity-60"
+              >
+                {runningDefaultSync === "incremental"
+                  ? "Syncing..."
+                  : "Sync Default Sekarang"}
+              </button>
+              <button
+                type="button"
+                onClick={handleToggleDefaultLiveSync}
+                disabled={runningDefaultSync !== ""}
+                className={`rounded-2xl px-5 py-3 text-sm font-semibold disabled:opacity-60 ${
+                  defaultLiveSyncEnabled
+                    ? "border border-amber-300/30 bg-amber-500/10 text-amber-200"
+                    : "border border-emerald-300/30 bg-emerald-500/10 text-emerald-200"
+                }`}
+              >
+                {runningDefaultSync === "live"
+                  ? "Updating..."
+                  : defaultLiveSyncEnabled
+                  ? "Stop Auto Sync"
+                  : "Start Auto Sync"}
+              </button>
+            </div>
+          </div>
+        </div>
+
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="rounded-2xl border border-cyan-500/14 bg-slate-950/60 px-4 py-3 text-sm text-slate-300">
             <div className="text-[11px] uppercase tracking-[0.22em] text-cyan-300/80">

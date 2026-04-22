@@ -1175,6 +1175,7 @@ export default function SecretaryDatabaseSheetsPage() {
     }
   };
 
+
   const handleStageUpdate = async (
     collectionName: string,
     stage: "PLANNED" | "SEEDED" | "COLLECTION_READY" | "SERVICE_READY" | "UI_READY" | "SYNC_READY"

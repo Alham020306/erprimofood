@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import SendReportToCEO from "../shared/components/SendReportToCEO";
 import { DirectorUser } from "../../core/types/auth";
 import { UserRole } from "../../core/types/roles";
@@ -43,6 +43,11 @@ import SecretaryLettersPage from "../secretary/pages/SecretaryLettersPage";
 import SecretaryAgendaPage from "../secretary/pages/SecretaryAgendaPage";
 import ExecutiveControlPage from "../executive/pages/ExecutiveControlPage";
 import MeetingSchedulePage from "../meetings/pages/MeetingSchedulePage";
+import {
+  isDefaultLiveSyncRunning,
+  startDefaultLiveSync,
+  stopDefaultLiveSync,
+} from "../secretary/services/defaultSyncService";
 
 
 type Props = {
@@ -64,6 +69,29 @@ export default function RoleRouter({ user, onLogout }: Props) {
     user.primaryRole === UserRole.CTO ? "meetings" : "dashboard"
   );
   const [showReportModal, setShowReportModal] = useState(false);
+
+  useEffect(() => {
+    let startedByRouter = false;
+
+    const ensureDefaultSync = async () => {
+      if (user.primaryRole !== UserRole.CTO) return;
+      if (isDefaultLiveSyncRunning()) return;
+
+      try {
+        await startDefaultLiveSync();
+        startedByRouter = true;
+      } catch (error) {
+        console.error("Auto start default sync failed:", error);
+      }
+    };
+
+    void ensureDefaultSync();
+
+    return () => {
+      if (!startedByRouter) return;
+      void stopDefaultLiveSync();
+    };
+  }, [user.primaryRole]);
 
   const handleNavigate = (page: string) => {
     if (page === "report-to-ceo") {

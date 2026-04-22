@@ -22,6 +22,13 @@ import {
   subscribeSummaryDoc,
 } from "../../shared/services/directorSummaryService";
 import {
+  isDefaultLiveSyncRunning,
+  runIncrementalDefaultSync,
+  seedDefaultSyncTables,
+  startDefaultLiveSync,
+  stopDefaultLiveSync,
+} from "../../secretary/services/defaultSyncService";
+import {
   fetchCTOExportSnapshotSource,
   fetchCTOSummaryRefreshSource,
   subscribeCTODashboardConfig,
@@ -41,6 +48,12 @@ export const useCTOConfigControl = ({ user }: Params) => {
   >({});
   const [syncState, setSyncState] = useState<any | null>(null);
   const [refreshingSummary, setRefreshingSummary] = useState<SummaryKey | "all" | "">("");
+  const [runningDefaultSync, setRunningDefaultSync] = useState<
+    "" | "seed" | "incremental" | "live"
+  >("");
+  const [defaultLiveSyncEnabled, setDefaultLiveSyncEnabled] = useState(() =>
+    isDefaultLiveSyncRunning()
+  );
 
   useEffect(() => {
     const unsubConfig = subscribeCTODashboardConfig(setRawConfig);
@@ -263,6 +276,41 @@ export const useCTOConfigControl = ({ user }: Params) => {
     }
   };
 
+  const seedDefaultSyncRegistry = async () => {
+    setRunningDefaultSync("seed");
+    try {
+      return await seedDefaultSyncTables();
+    } finally {
+      setRunningDefaultSync("");
+    }
+  };
+
+  const syncDefaultNow = async () => {
+    setRunningDefaultSync("incremental");
+    try {
+      return await runIncrementalDefaultSync();
+    } finally {
+      setRunningDefaultSync("");
+    }
+  };
+
+  const toggleDefaultLiveSync = async () => {
+    setRunningDefaultSync("live");
+    try {
+      if (defaultLiveSyncEnabled) {
+        const result = await stopDefaultLiveSync();
+        setDefaultLiveSyncEnabled(false);
+        return { ...result, enabled: false };
+      }
+
+      const result = await startDefaultLiveSync();
+      setDefaultLiveSyncEnabled(true);
+      return { ...result, enabled: true };
+    } finally {
+      setRunningDefaultSync("");
+    }
+  };
+
   return {
     loading,
     dashboard,
@@ -275,8 +323,13 @@ export const useCTOConfigControl = ({ user }: Params) => {
     triggerBackup,
     summarySnapshots,
     syncState,
+    runningDefaultSync,
+    defaultLiveSyncEnabled,
     refreshingSummary,
     refreshSummary,
     refreshAllSummaries,
+    seedDefaultSyncRegistry,
+    syncDefaultNow,
+    toggleDefaultLiveSync,
   };
 };
