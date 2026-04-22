@@ -28,15 +28,6 @@ import CFOReportsPage from "../cfo/pages/CFOReportsPage";
 import CFOFundRequestsPage from "../cfo/pages/CFOFundRequestsPage";
 import CFORecruitmentPage from "../cfo/pages/CFORecruitmentPage";
 import CFOSheetsPage from "../cfo/pages/CFOSheetsPage";
-import CTODashboardPage from "../cto/pages/CTODashboardPageV2";
-import CTOLogsPage from "../cto/pages/CTOLogsPage";
-import CTOAlertsPage from "../cto/pages/CTOAlertsPage";
-import CTOConfigPage from "../cto/pages/CTOConfigPage";
-import CTODriverMonitorPage from "../cto/pages/CTODriverMonitorPage";
-import CTOMerchantZonesPage from "../cto/pages/CTOMerchantZonesPage";
-import CTOExpansionPage from "../cto/pages/CTOExpansionPage";
-import CTOMapMonitorPage from "../cto/pages/CTOMapMonitorPage";
-import CTOUpdateCenterPage from "../cto/pages/CTOUpdateCenterPage";
 import CMODashboardPage from "../cmo/pages/CMODashboardPage";
 import CMOCampaignPage from "../cmo/pages/CMOCampaignPage";
 import CMOUserInsightsPage from "../cmo/pages/CMOUserInsightsPage";
@@ -46,7 +37,6 @@ import HREmployeesPage from "../hr/pages/HREmployeesPage";
 import HRAttendancePage from "../hr/pages/HRAttendancePage";
 import HRClockAttendancePage from "../hr/pages/HRClockAttendancePage";
 import SecretaryDashboardPage from "../secretary/pages/SecretaryDashboardPage";
-import InternalUsersPage from "../management/pages/InternalUsersPage";
 import MerchantManagementPage from "../management/pages/MerchantManagementPage";
 import DriverManagementPage from "../management/pages/DriverManagementPage";
 import SecretaryLettersPage from "../secretary/pages/SecretaryLettersPage";
@@ -70,7 +60,9 @@ const PlaceholderPage = ({ title }: { title: string }) => {
 };
 
 export default function RoleRouter({ user, onLogout }: Props) {
-  const [activePage, setActivePage] = useState("dashboard");
+  const [activePage, setActivePage] = useState(
+    user.primaryRole === UserRole.CTO ? "meetings" : "dashboard"
+  );
   const [showReportModal, setShowReportModal] = useState(false);
 
   const handleNavigate = (page: string) => {
@@ -190,39 +182,6 @@ export default function RoleRouter({ user, onLogout }: Props) {
 
 const renderCTO = () => {
   switch (activePage) {
-    case "dashboard":
-      return <CTODashboardPage user={user} />;
-    case "health":
-      return <AdminSystemHealthPage />;
-    case "systems":
-      return <CTOLogsPage />;
-    case "security":
-      return <CTOAlertsPage />;
-    case "updates":
-      return <CTOUpdateCenterPage />;
-    case "access":
-      return <CTOConfigPage user={user} />;
-    case "people":
-      return <InternalUsersPage user={user} />;
-    // New Super Admin synced features
-    case "users":
-      return <AdminUserManagementPage user={user} />;
-    case "orders":
-      return <AdminOrdersPage />;
-    case "support":
-      return <AdminSupportPage user={user} />;
-    case "activity":
-      return <AdminUserActivityPage />;
-    case "assets-catalog":
-      return <AdminAssetsCatalogPage />;
-    case "fleet":
-      return <CTODriverMonitorPage />;
-    case "operations":
-      return <CTOMerchantZonesPage />;
-    case "reports":
-      return <CTOExpansionPage />;
-    case "assets":
-      return <CTOMapMonitorPage />; 
     case "meetings":
       return <MeetingSchedulePage user={user} />;
     case "approvals":
@@ -232,7 +191,7 @@ const renderCTO = () => {
     case "attendance":
       return <HRClockAttendancePage user={user} />;
     default:
-      return <CTODashboardPage user={user} />;
+      return <MeetingSchedulePage user={user} />;
   }
 };
 const renderCMO = () => {
