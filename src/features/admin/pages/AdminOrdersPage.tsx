@@ -107,13 +107,7 @@ export default function AdminOrdersPage() {
 
   return (
     <div className="space-y-8 pb-20">
-      <div className="grid gap-6 md:grid-cols-3">
-        <StatBlock
-          title="Total Revenue"
-          value={`Rp ${Number(summary.totalValue || 0).toLocaleString("id-ID")}`}
-          hint="Akumulasi nilai order yang sedang terbaca di konsol transaksi."
-          dark
-        />
+      <div className="grid gap-6 md:grid-cols-2">
         <StatBlock
           title="Total Transactions"
           value={String(summary.total || 0)}

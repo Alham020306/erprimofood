@@ -4,25 +4,11 @@ import {
   ArrowUpRight,
   Headset,
   MapPinned,
-  Receipt,
   Store,
-  TrendingUp,
   Users,
 } from "lucide-react";
-import {
-  Area,
-  AreaChart,
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
 import ReviewsMonitorPanel from "../../coo/components/ReviewsMonitorPanel";
-import { useAdminDashboard, type TimeFilter } from "../hooks/useAdminDashboard";
+import { useAdminDashboard } from "../hooks/useAdminDashboard";
 import { loadGoogleMaps } from "../../shared/utils/googleMapsLoader";
 import {
   getMerchantOperationalMessage,
@@ -226,7 +212,6 @@ export default function AdminDashboardPage() {
     allOrders,
     filteredOrders,
     timeFilter,
-    setTimeFilter,
     frictionOrders,
     restaurantReviews,
     driverReviews,
@@ -314,62 +299,6 @@ export default function AdminDashboardPage() {
     };
   }, [filteredOrders, timeFilter]);
 
-  const orderTrend = useMemo(() => {
-    if (orderStats.byDayArray.length > 0) {
-      return orderStats.byDayArray;
-    }
-
-    // Default empty data based on time filter - in correct time order
-    if (timeFilter === "week") {
-      // Monday to Sunday order
-      return [
-        { label: "Sen", orders: 0, revenue: 0 },
-        { label: "Sel", orders: 0, revenue: 0 },
-        { label: "Rab", orders: 0, revenue: 0 },
-        { label: "Kam", orders: 0, revenue: 0 },
-        { label: "Jum", orders: 0, revenue: 0 },
-        { label: "Sab", orders: 0, revenue: 0 },
-        { label: "Min", orders: 0, revenue: 0 },
-      ];
-    } else if (timeFilter === "month") {
-      // Days 1-31 (will show only relevant days when data exists)
-      return Array.from({ length: 31 }, (_, i) => ({
-        label: `${i + 1}`,
-        orders: 0,
-        revenue: 0,
-      }));
-    } else {
-      // Year: January to December
-      return [
-        { label: "Jan", orders: 0, revenue: 0 },
-        { label: "Feb", orders: 0, revenue: 0 },
-        { label: "Mar", orders: 0, revenue: 0 },
-        { label: "Apr", orders: 0, revenue: 0 },
-        { label: "Mei", orders: 0, revenue: 0 },
-        { label: "Jun", orders: 0, revenue: 0 },
-        { label: "Jul", orders: 0, revenue: 0 },
-        { label: "Agu", orders: 0, revenue: 0 },
-        { label: "Sep", orders: 0, revenue: 0 },
-        { label: "Okt", orders: 0, revenue: 0 },
-        { label: "Nov", orders: 0, revenue: 0 },
-        { label: "Des", orders: 0, revenue: 0 },
-      ];
-    }
-  }, [orderStats, timeFilter]);
-
-  const statusData = useMemo(() => {
-    const entries = [
-      { label: "Pending", value: orderStats.pending, color: "#f59e0b" },
-      { label: "Cooking", value: orderStats.cooking, color: "#06b6d4" },
-      { label: "Ready", value: orderStats.ready, color: "#6366f1" },
-      { label: "On Delivery", value: orderStats.onDelivery, color: "#8b5cf6" },
-      { label: "Completed", value: orderStats.completed, color: "#10b981" },
-      { label: "Cancelled", value: orderStats.cancelled, color: "#ef4444" },
-    ];
-
-    return entries.filter((item) => item.value > 0);
-  }, [orderStats]);
-
   const spotlightRestaurants = useMemo(
     () =>
       restaurants
@@ -433,123 +362,7 @@ export default function AdminDashboardPage() {
         </div>
       </section>
 
-      <div className="grid gap-6 xl:grid-cols-3">
-        <OpsCard eyebrow="Platform Metrics" title="Analytics Dashboard">
-          <div className="mb-4 flex flex-wrap gap-2">
-            {([
-              { key: "week", label: "Minggu Ini (Sen-Min)" },
-              { key: "month", label: "Bulan Ini" },
-              { key: "year", label: "Tahun Ini" },
-            ] as { key: TimeFilter; label: string }[]).map(({ key, label }) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => setTimeFilter(key)}
-                className={`rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-[0.14em] transition ${
-                  timeFilter === key
-                    ? "bg-slate-900 text-white shadow-lg"
-                    : "bg-slate-100 text-slate-500 hover:bg-slate-200"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="rounded-[1.5rem] bg-slate-50 p-4">
-              <div className="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">
-                Revenue (Completed)
-              </div>
-              <div className="mt-3 flex items-center gap-3">
-                <TrendingUp className="text-emerald-500" size={18} />
-                <span className="text-2xl font-black text-slate-900">
-                  Rp {orderStats.totalRevenue.toLocaleString("id-ID")}
-                </span>
-              </div>
-              <div className="mt-2 text-xs text-slate-500">
-                Dari {orderStats.completed} order completed
-              </div>
-            </div>
-            <div className="rounded-[1.5rem] bg-slate-50 p-4">
-              <div className="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">
-                Active Orders
-              </div>
-              <div className="mt-3 flex items-center gap-3">
-                <Receipt className="text-indigo-500" size={18} />
-                <span className="text-2xl font-black text-slate-900">
-                  {orderStats.active}
-                </span>
-              </div>
-              <div className="mt-2 text-xs text-slate-500">
-                {orderStats.pending} pending, {orderStats.ready} ready, {orderStats.onDelivery} delivery
-              </div>
-            </div>
-            <div className="rounded-[1.5rem] bg-slate-50 p-4">
-              <div className="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">
-                Total Orders
-              </div>
-              <div className="mt-3 flex items-center gap-3">
-                <Activity className="text-sky-500" size={18} />
-                <span className="text-2xl font-black text-slate-900">
-                  {filteredOrders.length}
-                </span>
-              </div>
-              <div className="mt-2 text-xs text-slate-500">
-                {orderStats.cancelled} cancelled, {allOrders.length - filteredOrders.length} di luar periode
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-6 grid gap-4 xl:grid-cols-2">
-            <div className="rounded-[1.75rem] border border-slate-100 bg-slate-50 p-4">
-              <div className="mb-3 text-sm font-black text-slate-900">Order Flow</div>
-              <div className="h-56">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={orderTrend}>
-                    <defs>
-                      <linearGradient id="adminOrdersGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#6366f1" stopOpacity={0.45} />
-                        <stop offset="100%" stopColor="#6366f1" stopOpacity={0.02} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                    <XAxis dataKey="label" tickLine={false} axisLine={false} />
-                    <YAxis tickLine={false} axisLine={false} />
-                    <Tooltip />
-                    <Area
-                      type="monotone"
-                      dataKey="orders"
-                      stroke="#6366f1"
-                      fill="url(#adminOrdersGradient)"
-                      strokeWidth={3}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-
-            <div className="rounded-[1.75rem] border border-slate-100 bg-slate-50 p-4">
-              <div className="mb-3 text-sm font-black text-slate-900">Order Status Mix</div>
-              <div className="h-56">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={statusData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                    <XAxis dataKey="label" tickLine={false} axisLine={false} />
-                    <YAxis tickLine={false} axisLine={false} />
-                    <Tooltip />
-                    <Bar dataKey="value" radius={[12, 12, 0, 0]}>
-                      {statusData.map((entry) => (
-                        <Cell key={entry.label} fill={entry.color} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          </div>
-        </OpsCard>
-
+      <div className="grid gap-6 xl:grid-cols-2">
         <OpsCard eyebrow="Support Desk" title="Operational Signals">
           <div className="rounded-[1.75rem] border border-slate-200 bg-slate-50 p-5">
             <div className="flex items-start justify-between gap-4">
