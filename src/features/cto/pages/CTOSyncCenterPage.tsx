@@ -156,7 +156,7 @@ export default function CTOSyncCenterPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <section className="rounded-[2rem] border border-cyan-500/14 bg-slate-950/85 p-6 shadow-[0_20px_70px_rgba(6,182,212,0.12)]">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
           <div className="max-w-3xl">
@@ -180,7 +180,7 @@ export default function CTOSyncCenterPage() {
             {message ? <p className="mt-4 text-sm text-cyan-200">{message}</p> : null}
           </div>
 
-          <div className="flex flex-wrap gap-3">
+          <div className="grid w-full gap-3 sm:flex sm:w-auto sm:flex-wrap">
             <button
               type="button"
               onClick={handleSeed}
@@ -218,7 +218,7 @@ export default function CTOSyncCenterPage() {
       </section>
 
       <section className="rounded-[2rem] border border-cyan-500/14 bg-slate-950/70 p-6">
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.24em] text-cyan-300/80">
               Sync Totals
@@ -232,7 +232,7 @@ export default function CTOSyncCenterPage() {
           </div>
         </div>
 
-        <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {COUNT_TARGETS.map((item) => (
             <div
               key={item.key}
@@ -276,7 +276,7 @@ export default function CTOSyncCenterPage() {
       </section>
 
       <section className="rounded-[2rem] border border-cyan-500/14 bg-slate-950/70 p-6">
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.24em] text-cyan-300/80">
               Target Collections

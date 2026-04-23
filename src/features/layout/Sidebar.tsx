@@ -1,4 +1,5 @@
 import type { ComponentType } from "react";
+import { X } from "lucide-react";
 import { UserRole } from "../../core/types/roles";
 import {
   Activity,
@@ -22,6 +23,8 @@ type Props = {
   role: UserRole;
   activePage: string;
   onNavigate: (page: string) => void;
+  isMobile?: boolean;
+  onClose?: () => void;
 };
 
 type NavItem = {
@@ -164,16 +167,29 @@ const navMap: Record<UserRole, NavItem[]> = {
   ],
 };
 
-export default function Sidebar({ role, activePage, onNavigate }: Props) {
-  const items = navMap[role] || [];
+export const getNavItemsForRole = (role: UserRole) => navMap[role] || [];
+export const getSidebarIcon = (key: string) => iconMap[key] || LayoutDashboard;
+
+export default function Sidebar({
+  role,
+  activePage,
+  onNavigate,
+  isMobile = false,
+  onClose,
+}: Props) {
+  const items = getNavItemsForRole(role);
   const theme = roleThemes[role];
 
   return (
     <aside
-      className={`sticky top-0 h-screen w-72 self-start overflow-y-auto border-r p-4 ${theme.sidebar} ${theme.sidebarBorder}`}
+      className={
+        isMobile
+          ? `h-full w-full overflow-y-auto p-4 ${theme.sidebar}`
+          : `sticky top-0 hidden h-screen w-72 self-start overflow-y-auto border-r p-4 lg:block ${theme.sidebar} ${theme.sidebarBorder}`
+      }
     >
       <div className={`mb-6 rounded-3xl border p-4 ${theme.panel}`}>
-        <div className="flex items-center justify-between">
+        <div className="flex items-start justify-between gap-3">
           <div>
             <h2 className="text-xl font-bold text-white/90 md:text-slate-900">
               Rimo Director
@@ -187,19 +203,33 @@ export default function Sidebar({ role, activePage, onNavigate }: Props) {
           </div>
         </div>
 
+        {isMobile ? (
+          <button
+            type="button"
+            onClick={onClose}
+            className={`mt-4 inline-flex items-center gap-2 rounded-2xl border px-3 py-2 text-xs font-semibold ${theme.panel}`}
+          >
+            <X className="h-4 w-4" />
+            Tutup Menu
+          </button>
+        ) : null}
+
         <p className="mt-4 text-sm text-slate-500">{theme.headline}</p>
       </div>
 
       <nav className="space-y-2">
         {items.map((item) => {
           const active = activePage === item.key;
-          const Icon = iconMap[item.key] || LayoutDashboard;
+          const Icon = getSidebarIcon(item.key);
 
           return (
             <button
               key={item.key}
-              onClick={() => onNavigate(item.key)}
-              className={`flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-medium transition ${
+              onClick={() => {
+                onNavigate(item.key);
+                onClose?.();
+              }}
+              className={`flex w-full items-center gap-3 rounded-2xl px-4 py-3.5 text-left text-sm font-medium transition ${
                 active ? theme.activeNav : theme.idleNav
               }`}
             >
