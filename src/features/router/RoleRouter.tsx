@@ -67,6 +67,8 @@ const PlaceholderPage = ({ title }: { title: string }) => {
 };
 
 export default function RoleRouter({ user, onLogout }: Props) {
+  const shouldAutoSyncDefault =
+    user.primaryRole === UserRole.CTO || user.primaryRole === UserRole.HR;
   const [activePage, setActivePage] = useState(
     user.primaryRole === UserRole.CTO ? "meetings" : "dashboard"
   );
@@ -76,7 +78,7 @@ export default function RoleRouter({ user, onLogout }: Props) {
     let startedByRouter = false;
 
     const ensureDefaultSync = async () => {
-      if (user.primaryRole !== UserRole.CTO) return;
+      if (!shouldAutoSyncDefault) return;
       if (isDefaultLiveSyncRunning()) return;
 
       try {
@@ -93,7 +95,7 @@ export default function RoleRouter({ user, onLogout }: Props) {
       if (!startedByRouter) return;
       void stopDefaultLiveSync();
     };
-  }, [user.primaryRole]);
+  }, [shouldAutoSyncDefault]);
 
   const handleNavigate = (page: string) => {
     if (page === "report-to-ceo") {
