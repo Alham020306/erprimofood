@@ -406,6 +406,40 @@ export const subscribeAllAttendance = (
   );
 };
 
+export const subscribeAllAttendanceByMonth = (
+  month: number,
+  year: number,
+  callback: (records: ClockRecord[]) => void,
+  onError?: (error: Error) => void
+) => {
+  const q = query(
+    collection(dbCLevel, ATTENDANCE_CLOCK_COLLECTION),
+    where("month", "==", month),
+    where("year", "==", year)
+  );
+
+  return onSnapshot(
+    q,
+    (snap) => {
+      try {
+        const records = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() } as ClockRecord));
+        records.sort((a, b) => {
+          if (a.date === b.date) return (b.clockInAt || 0) - (a.clockInAt || 0);
+          return (b.date || "").localeCompare(a.date || "");
+        });
+        callback(records);
+      } catch (err) {
+        console.error("Error processing monthly attendance snapshot:", err);
+        if (onError) onError(err as Error);
+      }
+    },
+    (error) => {
+      console.error("Monthly attendance subscription error:", error);
+      if (onError) onError(error);
+    }
+  );
+};
+
 // Subscribe to employee's own attendance
 export const subscribeMyAttendance = (
   employeeId: string,

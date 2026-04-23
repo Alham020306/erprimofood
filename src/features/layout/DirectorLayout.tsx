@@ -52,7 +52,6 @@ const titleMap: Record<string, string> = {
   "report-to-ceo": "Laporan ke CEO",
   "fund-management": "Fund Management",
   ledger: "Ledger",
-  sheets: "Sheets",
   sync: "Sync Center",
 };
 
@@ -70,7 +69,16 @@ export default function DirectorLayout({
     () => getNavItemsForRole(user.primaryRole).slice(0, 5),
     [user.primaryRole]
   );
-  const showMobileBottomNav = user.primaryRole === UserRole.CTO;
+  const showMobileBottomNav =
+    user.primaryRole === UserRole.CTO || user.primaryRole === UserRole.CFO;
+  const bottomNavActiveClass =
+    user.primaryRole === UserRole.CFO
+      ? "bg-gradient-to-r from-emerald-500/20 via-blue-500/20 to-violet-500/20 text-emerald-200"
+      : "bg-cyan-500/15 text-cyan-200";
+  const bottomNavIdleClass =
+    user.primaryRole === UserRole.CFO
+      ? "text-slate-400 hover:bg-white/5 hover:text-emerald-100"
+      : "text-slate-400 hover:bg-white/5 hover:text-white";
 
   return (
     <div className={`flex min-h-screen ${theme.shell}`}>
@@ -128,8 +136,8 @@ export default function DirectorLayout({
                   onClick={() => onNavigate(item.key)}
                   className={`flex min-h-[68px] flex-col items-center justify-center gap-1 rounded-2xl px-2 py-2 text-center transition ${
                     active
-                      ? "bg-cyan-500/15 text-cyan-200"
-                      : "text-slate-400 hover:bg-white/5 hover:text-white"
+                      ? bottomNavActiveClass
+                      : bottomNavIdleClass
                   }`}
                 >
                   <Icon className="h-4 w-4 shrink-0" />

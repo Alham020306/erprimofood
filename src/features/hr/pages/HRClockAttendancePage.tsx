@@ -2,19 +2,12 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import {
   Camera,
   Clock,
-  MapPin,
   CheckCircle,
   AlertCircle,
   Calendar,
-  ChevronLeft,
-  ChevronRight,
-  UserCheck,
-  Briefcase,
-  Moon,
-  Sun,
-  Filter,
-  Download,
   ImageIcon,
+  Users,
+  BarChart3,
 } from "lucide-react";
 import { useHRClockAttendance } from "../hooks/useHRClockAttendance";
 import { useHREmployees } from "../hooks/useHREmployees";
@@ -35,6 +28,7 @@ const STATUS_COLORS: Record<string, { bg: string; text: string; label: string }>
 };
 
 export default function HRClockAttendancePage({ user }: Props) {
+  const now = new Date();
   const isHR = user.primaryRole === UserRole.HR;
   const isCEO = user.primaryRole === UserRole.CEO;
   const isCOO = user.primaryRole === UserRole.COO;
@@ -43,7 +37,11 @@ export default function HRClockAttendancePage({ user }: Props) {
   const isCMO = user.primaryRole === UserRole.CMO;
   const isADMIN = user.primaryRole === UserRole.ADMIN;
   const isSECRETARY = user.primaryRole === UserRole.SECRETARY;
-  const canViewAll = isHR || isCEO || isCFO; // HR, CEO, and CFO can view all records
+  const canViewAll = isHR || isCEO;
+  const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState(now.getFullYear());
+  const [selectedDate, setSelectedDate] = useState(now.toISOString().split("T")[0]);
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
 
   const { items: allEmployees } = useHREmployees();
   const myEmployee = allEmployees.find((e) => e.id === user.uid);
@@ -80,6 +78,7 @@ export default function HRClockAttendancePage({ user }: Props) {
     todayAttendance,
     myAttendanceHistory,
     allAttendance,
+    monthlyAttendance,
     dailySummary,
     stats,
     loading,
@@ -92,7 +91,21 @@ export default function HRClockAttendancePage({ user }: Props) {
     doClockOut,
     markStatus,
     canViewAllRecords,
-  } = useHRClockAttendance(userForHook, employeeData, isHR, isCEO, isCOO, isCFO, isCTO, isCMO, isADMIN, isSECRETARY);
+  } = useHRClockAttendance(
+    userForHook,
+    employeeData,
+    selectedDate,
+    selectedMonth,
+    selectedYear,
+    isHR,
+    isCEO,
+    isCOO,
+    isCFO,
+    isCTO,
+    isCMO,
+    isADMIN,
+    isSECRETARY
+  );
 
   // Camera state
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -106,7 +119,6 @@ export default function HRClockAttendancePage({ user }: Props) {
 
   // View state
   const [viewMode, setViewMode] = useState<"my" | "all">(canViewAll ? "all" : "my");
-  const [selectedDate, setSelectedDate] = useState(todayStr);
   const [filterDepartment, setFilterDepartment] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
 
@@ -261,6 +273,67 @@ export default function HRClockAttendancePage({ user }: Props) {
     return true;
   });
 
+  const monthlyAttendanceByEmployee = allEmployees.map((employee) => {
+    const records = monthlyAttendance
+      .filter((record) => record.employeeId === employee.id)
+      .sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+
+    const presentCount = records.filter((record) => record.status === "PRESENT").length;
+    const lateCount = records.filter((record) => record.status === "LATE").length;
+    const absentCount = records.filter((record) => record.status === "ABSENT").length;
+    const sickCount = records.filter((record) => record.status === "SICK").length;
+    const leaveCount = records.filter((record) => record.status === "LEAVE").length;
+    const wfaCount = records.filter((record) => record.status === "WFA").length;
+    const attendanceDates = records
+      .filter((record) => record.status === "PRESENT" || record.status === "LATE")
+      .map((record) => record.date);
+
+    return {
+      employee,
+      records,
+      presentCount,
+      lateCount,
+      absentCount,
+      sickCount,
+      leaveCount,
+      wfaCount,
+      totalAttendance: presentCount + lateCount,
+      attendanceDates,
+      averageWorkHours:
+        records.length > 0
+          ? Math.round(
+              (records.reduce((acc, record) => acc + (record.workDurationHours || 0), 0) /
+                records.length) *
+                100
+            ) / 100
+          : 0,
+    };
+  });
+
+  const selectedEmployeeMonthly = monthlyAttendanceByEmployee.find(
+    (item) => item.employee.id === selectedEmployeeId
+  );
+
+  const monthSummary = monthlyAttendance.reduce(
+    (acc, record) => {
+      acc.totalRecords += 1;
+      if (record.status === "PRESENT") acc.present += 1;
+      if (record.status === "LATE") acc.late += 1;
+      if (record.status === "ABSENT") acc.absent += 1;
+      if (record.status === "SICK") acc.sick += 1;
+      if (record.status === "LEAVE") acc.leave += 1;
+      if (record.status === "WFA") acc.wfa += 1;
+      return acc;
+    },
+    { totalRecords: 0, present: 0, late: 0, absent: 0, sick: 0, leave: 0, wfa: 0 }
+  );
+  const ongoingTodayRecords = monthlyAttendance.filter(
+    (record) =>
+      record.date === todayStr &&
+      !!record.clockInAt &&
+      !record.clockOutAt
+  );
+
   // Format time
   const formatTime = (timestamp: number) => {
     if (!timestamp) return "-";
@@ -294,7 +367,7 @@ export default function HRClockAttendancePage({ user }: Props) {
         </div>
         <div className="text-right">
           <p className="text-2xl font-bold text-slate-900">
-            {new Date().toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+            {new Date(selectedDate).toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
           </p>
           <p className="text-slate-500">{new Date().toLocaleTimeString("id-ID")}</p>
         </div>
@@ -481,19 +554,73 @@ export default function HRClockAttendancePage({ user }: Props) {
 
       {/* View Toggle (HR/CEO only) */}
       {canViewAll && (
-        <div className="flex gap-2">
-          <button
-            onClick={() => setViewMode("my")}
-            className={`rounded-xl px-4 py-2 font-semibold ${viewMode === "my" ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-600"}`}
-          >
-            Absensi Saya
-          </button>
-          <button
-            onClick={() => setViewMode("all")}
-            className={`rounded-xl px-4 py-2 font-semibold ${viewMode === "all" ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-600"}`}
-          >
-            Rekap Semua Karyawan
-          </button>
+        <div className="space-y-4">
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => setViewMode("my")}
+              className={`rounded-xl px-4 py-2 font-semibold ${viewMode === "my" ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-600"}`}
+            >
+              Absensi Saya
+            </button>
+            <button
+              onClick={() => setViewMode("all")}
+              className={`rounded-xl px-4 py-2 font-semibold ${viewMode === "all" ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-600"}`}
+            >
+              Rekap Semua Karyawan
+            </button>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 rounded-xl bg-white p-4 shadow-sm">
+            <div className="flex items-center gap-2">
+              <Calendar size={18} className="text-slate-400" />
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="rounded-lg border border-slate-200 px-3 py-2"
+              />
+            </div>
+            <select
+              value={selectedMonth}
+              onChange={(e) => {
+                const nextMonth = Number(e.target.value);
+                setSelectedMonth(nextMonth);
+                const currentDay = new Date(selectedDate).getDate();
+                const maxDay = new Date(selectedYear, nextMonth, 0).getDate();
+                const safeDay = Math.min(currentDay, maxDay);
+                setSelectedDate(
+                  `${selectedYear}-${String(nextMonth).padStart(2, "0")}-${String(safeDay).padStart(2, "0")}`
+                );
+              }}
+              className="rounded-lg border border-slate-200 px-3 py-2"
+            >
+              {Array.from({ length: 12 }, (_, index) => (
+                <option key={index + 1} value={index + 1}>
+                  {new Date(2000, index, 1).toLocaleDateString("id-ID", { month: "long" })}
+                </option>
+              ))}
+            </select>
+            <select
+              value={selectedYear}
+              onChange={(e) => {
+                const nextYear = Number(e.target.value);
+                setSelectedYear(nextYear);
+                const currentDay = new Date(selectedDate).getDate();
+                const maxDay = new Date(nextYear, selectedMonth, 0).getDate();
+                const safeDay = Math.min(currentDay, maxDay);
+                setSelectedDate(
+                  `${nextYear}-${String(selectedMonth).padStart(2, "0")}-${String(safeDay).padStart(2, "0")}`
+                );
+              }}
+              className="rounded-lg border border-slate-200 px-3 py-2"
+            >
+              {Array.from({ length: 5 }, (_, index) => now.getFullYear() - 2 + index).map((yearOption) => (
+                <option key={yearOption} value={yearOption}>
+                  {yearOption}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       )}
 
@@ -530,6 +657,74 @@ export default function HRClockAttendancePage({ user }: Props) {
             </div>
           )}
 
+          <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-6">
+            <div className="rounded-xl bg-white p-4 shadow-sm">
+              <p className="text-xs text-slate-500">Rekap Bulanan</p>
+              <p className="text-xl font-bold">{monthSummary.totalRecords}</p>
+            </div>
+            <div className="rounded-xl bg-emerald-50 p-4">
+              <p className="text-xs text-emerald-600">Hadir Bulanan</p>
+              <p className="text-xl font-bold text-emerald-700">{monthSummary.present}</p>
+            </div>
+            <div className="rounded-xl bg-amber-50 p-4">
+              <p className="text-xs text-amber-600">Terlambat Bulanan</p>
+              <p className="text-xl font-bold text-amber-700">{monthSummary.late}</p>
+            </div>
+            <div className="rounded-xl bg-rose-50 p-4">
+              <p className="text-xs text-rose-600">Tidak Hadir Bulanan</p>
+              <p className="text-xl font-bold text-rose-700">{monthSummary.absent}</p>
+            </div>
+            <div className="rounded-xl bg-blue-50 p-4">
+              <p className="text-xs text-blue-600">Sakit Bulanan</p>
+              <p className="text-xl font-bold text-blue-700">{monthSummary.sick}</p>
+            </div>
+            <div className="rounded-xl bg-violet-50 p-4">
+              <p className="text-xs text-violet-600">Cuti / WFA</p>
+              <p className="text-xl font-bold text-violet-700">{monthSummary.leave + monthSummary.wfa}</p>
+            </div>
+          </div>
+
+          <div className="rounded-xl bg-white shadow-sm">
+            <div className="border-b border-slate-100 px-4 py-4">
+              <div className="flex items-center gap-2">
+                <Clock size={18} className="text-slate-400" />
+                <h3 className="text-lg font-bold text-slate-900">Absensi Hari Ini yang Sedang Berlangsung</h3>
+              </div>
+              <p className="mt-1 text-sm text-slate-500">
+                Karyawan yang sudah absen masuk hari ini tetapi belum absen pulang.
+              </p>
+            </div>
+            <div className="p-4">
+              {ongoingTodayRecords.length > 0 ? (
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                  {ongoingTodayRecords.map((record) => (
+                    <div key={record.id} className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                      <p className="font-semibold text-slate-900">{record.employeeName}</p>
+                      <p className="text-sm text-slate-500">{record.department} • {record.position}</p>
+                      <div className="mt-3 flex items-center justify-between text-sm">
+                        <span className="text-slate-500">Masuk</span>
+                        <span className="font-semibold text-amber-700">{formatTime(record.clockInAt)}</span>
+                      </div>
+                      <div className="mt-2 flex items-center justify-between text-sm">
+                        <span className="text-slate-500">Durasi berjalan</span>
+                        <span className="font-semibold text-slate-900">
+                          {formatDuration((Date.now() - record.clockInAt) / (1000 * 60 * 60))}
+                        </span>
+                      </div>
+                      <div className="mt-3">
+                        <span className="rounded-full bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-700">
+                          Sedang bekerja
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-slate-400">Tidak ada absensi yang sedang berlangsung hari ini.</p>
+              )}
+            </div>
+          </div>
+
           {/* Filters */}
           <div className="flex flex-wrap gap-3 rounded-xl bg-white p-4 shadow-sm">
             <select
@@ -557,8 +752,159 @@ export default function HRClockAttendancePage({ user }: Props) {
             </select>
           </div>
 
+          <div className="grid gap-6 xl:grid-cols-[1.2fr,0.8fr]">
+            <div className="rounded-xl bg-white shadow-sm">
+              <div className="border-b border-slate-100 px-4 py-4">
+                <div className="flex items-center gap-2">
+                  <Users size={18} className="text-slate-400" />
+                  <h3 className="text-lg font-bold text-slate-900">Rekap Bulanan per Karyawan</h3>
+                </div>
+                <p className="mt-1 text-sm text-slate-500">
+                  Klik satu karyawan untuk melihat total hadir bulan ini dan tanggal absennya secara rinci.
+                </p>
+              </div>
+              <div className="max-h-[520px] overflow-auto">
+                <table className="w-full">
+                  <thead className="bg-slate-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-slate-700">Karyawan</th>
+                      <th className="px-4 py-3 text-center text-sm font-semibold text-slate-700">Hadir</th>
+                      <th className="px-4 py-3 text-center text-sm font-semibold text-slate-700">Terlambat</th>
+                      <th className="px-4 py-3 text-center text-sm font-semibold text-slate-700">Absen</th>
+                      <th className="px-4 py-3 text-center text-sm font-semibold text-slate-700">Rata-rata</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {monthlyAttendanceByEmployee.map((item) => (
+                      <tr
+                        key={item.employee.id}
+                        onClick={() => setSelectedEmployeeId(item.employee.id || null)}
+                        className={`cursor-pointer transition hover:bg-slate-50 ${
+                          selectedEmployeeId === item.employee.id ? "bg-emerald-50" : ""
+                        }`}
+                      >
+                        <td className="px-4 py-3">
+                          <p className="font-semibold text-slate-900">{item.employee.fullName}</p>
+                          <p className="text-xs text-slate-500">{item.employee.department} • {item.employee.position}</p>
+                        </td>
+                        <td className="px-4 py-3 text-center font-semibold text-emerald-700">{item.totalAttendance}</td>
+                        <td className="px-4 py-3 text-center font-semibold text-amber-700">{item.lateCount}</td>
+                        <td className="px-4 py-3 text-center font-semibold text-rose-700">{item.absentCount}</td>
+                        <td className="px-4 py-3 text-center font-semibold text-slate-700">{item.averageWorkHours}j</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="rounded-xl bg-white p-5 shadow-sm">
+              {selectedEmployeeMonthly ? (
+                <div className="space-y-4">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <BarChart3 size={18} className="text-slate-400" />
+                      <h3 className="text-lg font-bold text-slate-900">Detail Rekap Karyawan</h3>
+                    </div>
+                    <p className="mt-2 text-base font-semibold text-slate-900">{selectedEmployeeMonthly.employee.fullName}</p>
+                    <p className="text-sm text-slate-500">
+                      {selectedEmployeeMonthly.employee.department} • {selectedEmployeeMonthly.employee.position}
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="rounded-xl bg-emerald-50 p-3">
+                      <p className="text-xs text-emerald-600">Total Hadir</p>
+                      <p className="text-xl font-bold text-emerald-700">{selectedEmployeeMonthly.totalAttendance}</p>
+                    </div>
+                    <div className="rounded-xl bg-amber-50 p-3">
+                      <p className="text-xs text-amber-600">Terlambat</p>
+                      <p className="text-xl font-bold text-amber-700">{selectedEmployeeMonthly.lateCount}</p>
+                    </div>
+                    <div className="rounded-xl bg-rose-50 p-3">
+                      <p className="text-xs text-rose-600">Tidak Hadir</p>
+                      <p className="text-xl font-bold text-rose-700">{selectedEmployeeMonthly.absentCount}</p>
+                    </div>
+                    <div className="rounded-xl bg-blue-50 p-3">
+                      <p className="text-xs text-blue-600">Rata-rata Jam</p>
+                      <p className="text-xl font-bold text-blue-700">{selectedEmployeeMonthly.averageWorkHours}j</p>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-slate-200 p-4">
+                    <p className="text-sm font-semibold text-slate-900">Tanggal Hadir Bulan Ini</p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {selectedEmployeeMonthly.attendanceDates.length > 0 ? (
+                        selectedEmployeeMonthly.attendanceDates.map((date) => (
+                          <span
+                            key={date}
+                            className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700"
+                          >
+                            {new Date(date).toLocaleDateString("id-ID", { day: "2-digit", month: "short" })}
+                          </span>
+                        ))
+                      ) : (
+                        <p className="text-sm text-slate-400">Belum ada tanggal hadir di bulan ini.</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-slate-200 p-4">
+                    <p className="text-sm font-semibold text-slate-900">Riwayat Tanggal Lengkap</p>
+                    <div className="mt-3 max-h-[260px] space-y-2 overflow-auto">
+                      {selectedEmployeeMonthly.records.length > 0 ? (
+                        selectedEmployeeMonthly.records.map((record) => (
+                          <div key={record.id} className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2">
+                            <div>
+                              <p className="text-sm font-semibold text-slate-900">
+                                {new Date(record.date).toLocaleDateString("id-ID", {
+                                  weekday: "short",
+                                  day: "2-digit",
+                                  month: "short",
+                                })}
+                              </p>
+                              <p className="text-xs text-slate-500">
+                                {formatTime(record.clockInAt)} - {formatTime(record.clockOutAt || 0)}
+                              </p>
+                            </div>
+                            <span className={`rounded-full px-2 py-1 text-xs font-semibold ${STATUS_COLORS[record.status]?.bg} ${STATUS_COLORS[record.status]?.text}`}>
+                              {STATUS_COLORS[record.status]?.label || record.status}
+                            </span>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-sm text-slate-400">Belum ada riwayat untuk karyawan ini pada bulan tersebut.</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex min-h-[320px] flex-col items-center justify-center text-center">
+                  <Users size={48} className="mb-3 text-slate-300" />
+                  <p className="text-base font-semibold text-slate-600">Pilih karyawan</p>
+                  <p className="mt-1 text-sm text-slate-400">
+                    Total hadir bulanan dan daftar tanggal absennya akan muncul di sini.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Attendance Table */}
           <div className="rounded-xl bg-white shadow-sm">
+            <div className="border-b border-slate-100 px-4 py-4">
+              <h3 className="text-lg font-bold text-slate-900">
+                Rekap Harian {new Date(selectedDate).toLocaleDateString("id-ID", {
+                  weekday: "long",
+                  day: "numeric",
+                  month: "long",
+                  year: "numeric",
+                })}
+              </h3>
+              <p className="mt-1 text-sm text-slate-500">
+                Data ini bisa diganti ke hari lain, lalu dibandingkan dengan rekap bulanannya.
+              </p>
+            </div>
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-slate-50">

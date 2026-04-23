@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   subscribeAllAttendance,
+  subscribeAllAttendanceByMonth,
   subscribeMyAttendance,
   clockIn,
   clockOut,
@@ -19,6 +20,9 @@ import { HREmployee } from "../services/hrEmployeeService";
 export const useHRClockAttendance = (
   user: { uid: string; fullName: string; role: string } | null,
   employee: HREmployee | null,
+  selectedDate?: string,
+  selectedMonth?: number,
+  selectedYear?: number,
   isHR: boolean = false,
   isCEO: boolean = false,
   isCOO: boolean = false,
@@ -33,6 +37,7 @@ export const useHRClockAttendance = (
   const [todayAttendance, setTodayAttendance] = useState<ClockRecord | null>(null);
   const [myAttendanceHistory, setMyAttendanceHistory] = useState<ClockRecord[]>([]);
   const [allAttendance, setAllAttendance] = useState<ClockRecord[]>([]);
+  const [monthlyAttendance, setMonthlyAttendance] = useState<ClockRecord[]>([]);
   const [dailySummary, setDailySummary] = useState<DailyAttendanceSummary | null>(null);
   const [stats, setStats] = useState({
     totalDays: 0,
@@ -48,8 +53,9 @@ export const useHRClockAttendance = (
 
   const today = new Date();
   const todayStr = today.toISOString().split("T")[0];
-  const currentMonth = today.getMonth() + 1;
-  const currentYear = today.getFullYear();
+  const currentMonth = selectedMonth ?? today.getMonth() + 1;
+  const currentYear = selectedYear ?? today.getFullYear();
+  const activeDate = selectedDate ?? todayStr;
 
   // Subscribe to today's attendance for current user
   useEffect(() => {
@@ -64,11 +70,12 @@ export const useHRClockAttendance = (
     let isMounted = true;
     let unsubMy: (() => void) | null = null;
     let unsubAll: (() => void) | null = null;
+    let unsubMonthly: (() => void) | null = null;
 
     const setupSubscriptions = async () => {
       try {
         // Get today's attendance
-        const todayRecord = await getTodayAttendance(employee.id!, todayStr);
+        const todayRecord = await getTodayAttendance(employee.id!, activeDate);
         if (isMounted) {
           setTodayAttendance(todayRecord);
         }
@@ -88,14 +95,19 @@ export const useHRClockAttendance = (
 
         // Subscribe to all attendance only if HR or CEO
         if (canViewAllRecords) {
-          unsubAll = subscribeAllAttendance(todayStr, (records) => {
+          unsubAll = subscribeAllAttendance(activeDate, (records) => {
             if (isMounted) {
               setAllAttendance(records);
             }
           });
+          unsubMonthly = subscribeAllAttendanceByMonth(currentMonth, currentYear, (records) => {
+            if (isMounted) {
+              setMonthlyAttendance(records);
+            }
+          });
 
           // Get daily summary
-          const summary = await getDailySummary(todayStr);
+          const summary = await getDailySummary(activeDate);
           if (isMounted) {
             setDailySummary(summary);
           }
@@ -118,8 +130,9 @@ export const useHRClockAttendance = (
       isMounted = false;
       if (unsubMy) unsubMy();
       if (unsubAll) unsubAll();
+      if (unsubMonthly) unsubMonthly();
     };
-  }, [user?.uid, employee?.id, canViewAllRecords, todayStr, currentMonth, currentYear]);
+  }, [user?.uid, employee?.id, canViewAllRecords, activeDate, currentMonth, currentYear]);
 
   // Check if can clock in
   const checkClockIn = useCallback(async (): Promise<{
@@ -221,6 +234,7 @@ export const useHRClockAttendance = (
     todayAttendance,
     myAttendanceHistory,
     allAttendance,
+    monthlyAttendance,
     dailySummary,
     stats,
     loading,

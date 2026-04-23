@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { subscribeSummaryDoc } from "../../shared/services/directorSummaryService";
 import { subscribeAdminUsers } from "../../admin/services/adminMonitoringService";
-import { subscribeHREmployees, HREmployee } from "../services/hrEmployeeService";
+import { HREmployee } from "../services/hrEmployeeService";
+import { subscribeDirectorUsers } from "../../management/services/entityManagementService";
 
 const defaultOverview = {
   totalDrivers: 0,
@@ -27,8 +28,28 @@ export const useHRDashboard = () => {
       subscribeAdminUsers((rows) => {
         setDrivers(rows.filter((item: any) => String(item?.role || "").toUpperCase() === "DRIVER"));
       }),
-      subscribeHREmployees((rows) => {
-        setEmployees(rows);
+      subscribeDirectorUsers((rows) => {
+        const mapped = rows.map((item: any) => ({
+          id: item.id || item.uid,
+          fullName: item.fullName || item.name || "-",
+          email: item.email || "",
+          phone: item.phone || "",
+          nik: item.nik || "",
+          position: item.title || item.primaryRole || "-",
+          department: item.department || item.primaryRole || "-",
+          employmentType: "FULL_TIME" as const,
+          status: item.isSuspended
+            ? "SUSPENDED"
+            : item.isActive === false
+            ? "INACTIVE"
+            : "ACTIVE",
+          joinDate: item.createdAt
+            ? new Date(Number(item.createdAt)).toISOString().split("T")[0]
+            : new Date().toISOString().split("T")[0],
+          gender: "MALE" as const,
+          salary: Number(item.salary || 0),
+        })) as HREmployee[];
+        setEmployees(mapped);
         setLoading(false);
       }),
     ];
