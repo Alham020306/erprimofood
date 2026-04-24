@@ -72,19 +72,25 @@ export const useHROrders = () => {
 
   const summary = useMemo(() => {
     const base = rawOrders.filter(isValidOrder);
+    const completedOrders = base.filter(
+      (item: any) => String(item?.status || "").toUpperCase() === "COMPLETED"
+    );
+    const cancelledOrders = base.filter((item: any) => {
+      const status = String(item?.status || "").toUpperCase();
+      return status === "CANCELLED" || status === "REJECTED";
+    });
 
     return {
       total: base.length,
       pending: base.filter(
         (item: any) => String(item?.status || "").toUpperCase() === "PENDING"
       ).length,
-      completed: base.filter(
-        (item: any) => String(item?.status || "").toUpperCase() === "COMPLETED"
-      ).length,
-      cancelled: base.filter((item: any) => {
-        const status = String(item?.status || "").toUpperCase();
-        return status === "CANCELLED" || status === "REJECTED";
-      }).length,
+      completed: completedOrders.length,
+      cancelled: cancelledOrders.length,
+      completedRevenue: completedOrders.reduce(
+        (sum: number, item: any) => sum + Number(item?.total || 0),
+        0
+      ),
       activeQueue: base.filter((item: any) =>
         ["PENDING", "ACCEPTED", "COOKING", "READY", "ON_DELIVERY"].includes(
           String(item?.status || "").toUpperCase()

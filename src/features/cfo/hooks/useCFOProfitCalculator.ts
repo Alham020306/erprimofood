@@ -1,12 +1,11 @@
 import { useEffect, useState, useMemo } from "react";
-import { collection, onSnapshot, query, where } from "firebase/firestore";
+import { collection, doc, onSnapshot, query, where } from "firebase/firestore";
 import { dbCLevel } from "../../../core/firebase/firebaseCLevel";
 import { dbMain } from "../../../core/firebase/firebaseMain";
 
-// Commission rates
-const COMMISSION_RATES = {
-  RESTAURANT: 0.20,
-  DRIVER: 0.15,
+const DEFAULT_COMMISSION_RATES = {
+  RESTAURANT: 0.05,
+  DRIVER: 0.20,
   PLATFORM_FEE: 0.05,
 };
 
@@ -44,6 +43,7 @@ export const useCFOProfitCalculator = (dateFilter?: string) => {
   const [orders, setOrders] = useState<any[]>([]);
   const [ledger, setLedger] = useState<any[]>([]);
   const [manualTx, setManualTx] = useState<any[]>([]);
+  const [systemConfig, setSystemConfig] = useState<any | null>(null);
 
   const today = dateFilter || new Date().toISOString().split('T')[0];
 
@@ -63,6 +63,13 @@ export const useCFOProfitCalculator = (dateFilter?: string) => {
     }, () => setLoading(false));
     return unsub;
   }, [dateFilter, today]);
+
+  useEffect(() => {
+    const unsub = onSnapshot(doc(dbMain, "system", "config"), (snap) => {
+      setSystemConfig(snap.exists() ? { id: snap.id, ...snap.data() } : null);
+    });
+    return unsub;
+  }, []);
 
   // Subscribe operational ledger
   useEffect(() => {
@@ -84,6 +91,23 @@ export const useCFOProfitCalculator = (dateFilter?: string) => {
 
   // Calculate profits
   const calculation = useMemo(() => {
+    const configSource = systemConfig?.settings || systemConfig || {};
+    const merchantRate =
+      Number(configSource?.serviceFeePercent ?? DEFAULT_COMMISSION_RATES.RESTAURANT * 100) / 100;
+    const driverRate =
+      Number(configSource?.driverCommissionPercent ?? DEFAULT_COMMISSION_RATES.DRIVER * 100) / 100;
+    const commissionRates = {
+      RESTAURANT:
+        Number.isFinite(merchantRate) && merchantRate >= 0
+          ? merchantRate
+          : DEFAULT_COMMISSION_RATES.RESTAURANT,
+      DRIVER:
+        Number.isFinite(driverRate) && driverRate >= 0
+          ? driverRate
+          : DEFAULT_COMMISSION_RATES.DRIVER,
+      PLATFORM_FEE: DEFAULT_COMMISSION_RATES.PLATFORM_FEE,
+    };
+
     // Order profits
     const orderData = orders.map(o => {
       const total = o.total || 0;
@@ -91,9 +115,9 @@ export const useCFOProfitCalculator = (dateFilter?: string) => {
         orderId: o.id,
         restaurant: o.restaurantName || o.restaurant?.name || "UNKNOWN",
         total,
-        platformFee: total * COMMISSION_RATES.PLATFORM_FEE,
-        driverFee: total * COMMISSION_RATES.DRIVER,
-        restaurantFee: total * COMMISSION_RATES.RESTAURANT,
+        platformFee: total * commissionRates.PLATFORM_FEE,
+        driverFee: total * commissionRates.DRIVER,
+        restaurantFee: total * commissionRates.RESTAURANT,
       };
     });
 
@@ -184,7 +208,7 @@ export const useCFOProfitCalculator = (dateFilter?: string) => {
       today,
       orders: orderData,
       orderCount: orders.length,
-      commissionRates: COMMISSION_RATES,
+      commissionRates,
       cashIn: {
         total: totalCashIn,
         bySource: cashInSources,
@@ -201,7 +225,7 @@ export const useCFOProfitCalculator = (dateFilter?: string) => {
       operationalCount: ledger.length,
       manualCount: manualTx.length,
     };
-  }, [orders, ledger, manualTx, loading, today]);
+  }, [orders, ledger, manualTx, loading, today, systemConfig]);
 
   return calculation;
 };

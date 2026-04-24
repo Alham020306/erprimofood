@@ -27,7 +27,6 @@ import CFOSettlementsPage from "../cfo/pages/CFOSettlementsPageV2";
 import CFOReportsPage from "../cfo/pages/CFOReportsPage";
 import CFOFundRequestsPage from "../cfo/pages/CFOFundRequestsPage";
 import CFORecruitmentPage from "../cfo/pages/CFORecruitmentPage";
-import CFOSheetsPage from "../cfo/pages/CFOSheetsPage";
 import CMODashboardPage from "../cmo/pages/CMODashboardPage";
 import CMOCampaignPage from "../cmo/pages/CMOCampaignPage";
 import CMOUserInsightsPage from "../cmo/pages/CMOUserInsightsPage";
@@ -44,6 +43,7 @@ import SecretaryLettersPage from "../secretary/pages/SecretaryLettersPage";
 import SecretaryAgendaPage from "../secretary/pages/SecretaryAgendaPage";
 import ExecutiveControlPage from "../executive/pages/ExecutiveControlPage";
 import MeetingSchedulePage from "../meetings/pages/MeetingSchedulePage";
+import CTOConfigPage from "../cto/pages/CTOConfigPage";
 import CTOSyncCenterPage from "../cto/pages/CTOSyncCenterPage";
 import {
   isDefaultLiveSyncRunning,
@@ -67,11 +67,13 @@ const PlaceholderPage = ({ title }: { title: string }) => {
 };
 
 export default function RoleRouter({ user, onLogout }: Props) {
-  const shouldAutoSyncDefault =
-    user.primaryRole === UserRole.CTO || user.primaryRole === UserRole.HR;
   const [activePage, setActivePage] = useState(
     user.primaryRole === UserRole.CTO ? "meetings" : "dashboard"
   );
+  const shouldAutoSyncDefault =
+    user.primaryRole === UserRole.CTO ||
+    ((user.primaryRole === UserRole.HR || user.primaryRole === UserRole.CFO) &&
+      activePage === "orders");
   const [showReportModal, setShowReportModal] = useState(false);
 
   useEffect(() => {
@@ -182,11 +184,11 @@ export default function RoleRouter({ user, onLogout }: Props) {
  const renderCFO = () => {
   switch (activePage) {
     case "dashboard":
-      return <CFODashboardPage />;
+      return <CFODashboardPage onNavigate={handleNavigate} />;
     case "revenue":
       return <AdminRevenuePage />;
     case "orders":
-      return <AdminOrdersPage />;
+      return <HROrdersPage mode="CFO" />;
     case "finance":
       return <CFOLedgerPage user={user} />;
     case "reports":
@@ -197,8 +199,6 @@ export default function RoleRouter({ user, onLogout }: Props) {
       return <CFOFundRequestsPage user={user} />;
     case "recruitment":
       return <CFORecruitmentPage user={user} />;
-    case "sheets":
-      return <CFOSheetsPage user={user} />;
     case "meetings":
       return <MeetingSchedulePage user={user} />;
     case "approvals":
@@ -214,6 +214,8 @@ export default function RoleRouter({ user, onLogout }: Props) {
 
 const renderCTO = () => {
   switch (activePage) {
+    case "systems":
+      return <CTOConfigPage user={user} />;
     case "sync":
       return <CTOSyncCenterPage />;
     case "meetings":

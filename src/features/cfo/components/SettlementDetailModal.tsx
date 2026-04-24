@@ -3,19 +3,20 @@ import { formatCurrency } from "../utils/formatters";
 
 type Order = {
   id: string;
-  total: number;
+  orderId: string;
+  amount: number;
+  total?: number;
+  orderTotal?: number;
   deliveryFee?: number;
-  status: string;
-  timestamp?: number;
-  restoCommissionPaid?: boolean;
-  driverCommissionPaid?: boolean;
-  restoEarnings?: number;
-  driverEarnings?: number;
+  createdAt?: number;
+  status?: string;
+  paidAt?: any;
 };
 
 type EntitySummary = {
   entityId: string;
   entityName: string;
+  commissionRate: number;
   totalUnpaid: number;
   totalPaid: number;
   unpaidCount: number;
@@ -28,6 +29,10 @@ type Props = {
   onClose: () => void;
   entity: EntitySummary | null;
   entityType: "RESTAURANT" | "DRIVER";
+  commissionRates: {
+    RESTAURANT: number;
+    DRIVER: number;
+  };
 };
 
 const formatOrderId = (id: string) => {
@@ -46,31 +51,25 @@ const formatDate = (timestamp?: number) => {
   });
 };
 
-export default function SettlementDetailModal({ isOpen, onClose, entity, entityType }: Props) {
+export default function SettlementDetailModal({
+  isOpen,
+  onClose,
+  entity,
+  entityType,
+  commissionRates,
+}: Props) {
   if (!isOpen || !entity) return null;
 
-  const calculateCommission = (order: Order, type: "RESTAURANT" | "DRIVER"): number => {
-    if (type === "RESTAURANT") {
-      const itemsTotal = (order.total || 0) - (order.deliveryFee || 0);
-      const restoEarnings = order.restoEarnings || itemsTotal * 0.8; // 20% commission
-      const commission = itemsTotal - restoEarnings;
-      return Math.max(0, commission);
-    } else {
-      const driverEarnings = order.driverEarnings || (order.deliveryFee || 0) * 0.85; // 15% commission
-      const commission = (order.deliveryFee || 0) - driverEarnings;
-      return Math.max(0, commission);
-    }
-  };
+  const sortByLatestDate = (a: Order, b: Order) =>
+    Number(b.createdAt || 0) - Number(a.createdAt || 0);
 
-  const unpaidOrders = entity.orders.filter((o) => {
-    if (entityType === "RESTAURANT") return !o.restoCommissionPaid;
-    return !o.driverCommissionPaid;
-  });
+  const unpaidOrders = entity.orders
+    .filter((o) => o.status !== "PAID")
+    .sort(sortByLatestDate);
 
-  const paidOrders = entity.orders.filter((o) => {
-    if (entityType === "RESTAURANT") return o.restoCommissionPaid;
-    return o.driverCommissionPaid;
-  });
+  const paidOrders = entity.orders
+    .filter((o) => o.status === "PAID")
+    .sort(sortByLatestDate);
 
   return (
     <div
@@ -145,10 +144,10 @@ export default function SettlementDetailModal({ isOpen, onClose, entity, entityT
                   {unpaidOrders.slice(0, 50).map((order) => (
                     <tr key={order.id} className="border-t border-rose-100 hover:bg-rose-50/50">
                       <td className="py-3 px-3 font-mono text-xs text-slate-700">
-                        {formatOrderId(order.id)}
+                        {formatOrderId(order.orderId || order.id)}
                       </td>
                       <td className="py-3 px-3 text-right font-bold text-rose-600">
-                        {formatCurrency(calculateCommission(order, entityType))}
+                        {formatCurrency(order.amount || 0)}
                       </td>
                       <td className="py-3 px-3 text-center">
                         <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-rose-100 text-rose-700 text-xs font-bold">
@@ -156,7 +155,7 @@ export default function SettlementDetailModal({ isOpen, onClose, entity, entityT
                         </span>
                       </td>
                       <td className="py-3 px-3 text-right text-xs text-slate-500">
-                        {formatDate(order.timestamp)}
+                        {formatDate(order.createdAt)}
                       </td>
                     </tr>
                   ))}
@@ -191,10 +190,10 @@ export default function SettlementDetailModal({ isOpen, onClose, entity, entityT
                   {paidOrders.slice(0, 20).map((order) => (
                     <tr key={order.id} className="border-t border-emerald-100 hover:bg-emerald-50/50">
                       <td className="py-3 px-3 font-mono text-xs text-slate-700">
-                        {formatOrderId(order.id)}
+                        {formatOrderId(order.orderId || order.id)}
                       </td>
                       <td className="py-3 px-3 text-right font-bold text-emerald-600">
-                        {formatCurrency(calculateCommission(order, entityType))}
+                        {formatCurrency(order.amount || 0)}
                       </td>
                       <td className="py-3 px-3 text-center">
                         <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 text-xs font-bold">
@@ -202,7 +201,7 @@ export default function SettlementDetailModal({ isOpen, onClose, entity, entityT
                         </span>
                       </td>
                       <td className="py-3 px-3 text-right text-xs text-slate-500">
-                        {formatDate(order.timestamp)}
+                        {formatDate(order.createdAt)}
                       </td>
                     </tr>
                   ))}
@@ -222,7 +221,9 @@ export default function SettlementDetailModal({ isOpen, onClose, entity, entityT
           <div className="flex justify-between items-center text-xs text-slate-500">
             <span>Total {entity.orders.length} order</span>
             <span>
-              Komisi {entityType === "RESTAURANT" ? "20% dari restaurant" : "15% dari driver"}
+              Komisi{" "}
+              {`${Math.round((entity.commissionRate || (entityType === "RESTAURANT" ? commissionRates.RESTAURANT : commissionRates.DRIVER)) * 100)}%`}{" "}
+              {entityType === "RESTAURANT" ? "dari restaurant" : "dari driver"}
             </span>
           </div>
         </div>

@@ -48,6 +48,8 @@ const sourceIcons: Record<string, React.ReactNode> = {
 
 export default function CFOProfitBreakdown({ user, date }: Props) {
   const calc = useCFOProfitCalculator(date);
+  const restaurantRateLabel = `${Math.round(calc.commissionRates.RESTAURANT * 100)}%`;
+  const driverRateLabel = `${Math.round(calc.commissionRates.DRIVER * 100)}%`;
 
   if (calc.loading) {
     return (
@@ -157,8 +159,8 @@ export default function CFOProfitBreakdown({ user, date }: Props) {
                       <p className="text-sm font-medium text-slate-700">{source}</p>
                       <p className="text-xs text-slate-400">
                         {source === "KOMISI ORDER" && "Dari fee platform per order"}
-                        {source === "BIAYA RESTAURANT" && "Komisi 20% dari restaurant"}
-                        {source === "BIAYA DRIVER" && "Komisi 15% dari driver"}
+                        {source === "BIAYA RESTAURANT" && `Komisi ${restaurantRateLabel} dari restaurant`}
+                        {source === "BIAYA DRIVER" && `Komisi ${driverRateLabel} dari driver`}
                         {source === "DANA INVESTOR" && "Investasi masuk"}
                         {source === "PINJAMAN" && "Dana pinjaman"}
                         {source === "PENJUALAN ASET" && "Penjualan aset perusahaan"}

@@ -21,9 +21,9 @@ const operationFieldMeta = {
   baseDeliveryFee: ["Base Delivery Fee", "Biaya dasar pengiriman sebelum tarif jarak."],
   pricePerKm: ["Price Per Km", "Tarif tambahan per kilometer."],
   baseDistanceKm: ["Base Distance Km", "Jarak dasar yang dicakup biaya awal."],
-  serviceFeePercent: ["Service Fee Percent", "Persentase biaya layanan customer."],
-  reservationServiceFee: ["Reservation Service Fee", "Biaya tambahan untuk reservasi."],
-  driverCommissionPercent: ["Driver Commission Percent", "Persentase komisi driver."],
+  serviceFeePercent: ["Merchant Commission Percent", "Persentase komisi admin yang diambil dari merchant/resto."],
+  reservationServiceFee: ["Reservation Service Fee", "Biaya layanan flat untuk order reservasi."],
+  driverCommissionPercent: ["Driver Commission Percent", "Persentase komisi admin yang diambil dari pendapatan driver."],
   adminEarnings: ["Admin Earnings", "Nilai earning internal yang tersimpan di config."],
   updateVersion: ["Update Version", "Versi app yang ditandai siap update."],
   updateLink: ["Update Link", "URL file update aplikasi."],
@@ -147,6 +147,8 @@ export default function CTOConfigPage({ user }: Props) {
   const [savingZone, setSavingZone] = useState(false);
   const [runningBackupScope, setRunningBackupScope] = useState("");
   const [zoneError, setZoneError] = useState("");
+  const [settingsPassword, setSettingsPassword] = useState("");
+  const [settingsError, setSettingsError] = useState("");
   const [defaultSyncMessage, setDefaultSyncMessage] = useState("");
 
   useEffect(() => {
@@ -212,6 +214,7 @@ export default function CTOConfigPage({ user }: Props) {
 
   const saveOps = async () => {
     setSavingOps(true);
+    setSettingsError("");
     try {
       await saveOperationalConfig({
         settings: {
@@ -231,7 +234,11 @@ export default function CTOConfigPage({ user }: Props) {
           updateAvailable: settingsForm.updateAvailable,
         },
         contact: contactForm,
+        password: settingsPassword,
       });
+      setSettingsPassword("");
+    } catch (error: any) {
+      setSettingsError(error?.message || "Gagal menyimpan system settings.");
     } finally {
       setSavingOps(false);
     }
@@ -609,10 +616,21 @@ export default function CTOConfigPage({ user }: Props) {
 
       <div className="grid gap-4 xl:grid-cols-2">
         <CTOSectionShell
-          title="Operations Settings"
-          subtitle="Pricing, maintenance copy, updates, and bot behavior."
+          title="System Settings & Commission Control"
+          subtitle="Meniru pola super admin lama: pricing operasional, komisi merchant/driver, reservasi, update app, dan metadata platform."
         >
           <div className="grid gap-4">
+            <div className="rounded-3xl border border-cyan-500/14 bg-slate-950/65 p-4 text-sm text-slate-300">
+              <div className="text-xs uppercase tracking-[0.22em] text-cyan-300/80">
+                commission source of truth
+              </div>
+              <p className="mt-2 leading-6 text-slate-400">
+                Nilai <span className="font-semibold text-white">Merchant Commission Percent</span>{" "}
+                dan <span className="font-semibold text-white">Driver Commission Percent</span>{" "}
+                di halaman ini menjadi acuan fallback untuk settlement CFO, mengikuti pola
+                sistem super admin lama.
+              </p>
+            </div>
             <LabeledInput
               label={operationFieldMeta.maintenanceTitle[0]}
               description={operationFieldMeta.maintenanceTitle[1]}
@@ -687,6 +705,28 @@ export default function CTOConfigPage({ user }: Props) {
             >
               App Update: {settingsForm.updateAvailable ? "READY" : "OFF"}
             </button>
+          </div>
+
+          <div className="mt-4 rounded-2xl border border-amber-400/30 bg-amber-500/10 p-4">
+            <div className="text-xs uppercase tracking-[0.22em] text-amber-200/90">
+              CTO password verification
+            </div>
+            <p className="mt-2 text-sm leading-6 text-amber-100/80">
+              Perubahan komisi merchant, komisi driver, pricing operasional, dan setting
+              sistem utama hanya boleh disimpan setelah CTO memasukkan password akun aktif.
+            </p>
+            <input
+              type="password"
+              value={settingsPassword}
+              onChange={(event) => setSettingsPassword(event.target.value)}
+              placeholder="Konfirmasi password CTO"
+              className="mt-3 w-full rounded-2xl border border-amber-400/30 bg-slate-950/70 px-4 py-3 text-white"
+            />
+            {settingsError ? (
+              <div className="mt-3 rounded-2xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+                {settingsError}
+              </div>
+            ) : null}
           </div>
 
           <button

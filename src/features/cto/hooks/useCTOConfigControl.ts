@@ -121,6 +121,21 @@ export const useCTOConfigControl = ({ user }: Params) => {
     [dashboard]
   );
 
+  const reauthenticateCTO = async (password: string) => {
+    const currentUser = authCLevel.currentUser;
+
+    if (!currentUser?.email) {
+      throw new Error("Sesi CTO tidak ditemukan. Silakan login ulang.");
+    }
+
+    if (!String(password || "").trim()) {
+      throw new Error("Password CTO wajib diisi untuk menyimpan perubahan.");
+    }
+
+    const credential = EmailAuthProvider.credential(currentUser.email, password);
+    await reauthenticateWithCredential(currentUser, credential);
+  };
+
   const saveConfig = async (nextFlags: typeof systemFlags) => {
     await upsertSystemConfig({
       settings: {
@@ -138,7 +153,10 @@ export const useCTOConfigControl = ({ user }: Params) => {
   const saveOperationalConfig = async (payload: {
     settings: Record<string, unknown>;
     contact: Record<string, unknown>;
+    password: string;
   }) => {
+    await reauthenticateCTO(payload.password);
+
     await upsertSystemConfig({
       settings: {
         ...(rawConfig?.settings || {}),
@@ -164,18 +182,7 @@ export const useCTOConfigControl = ({ user }: Params) => {
     zones: any[];
     password: string;
   }) => {
-    const currentUser = authCLevel.currentUser;
-
-    if (!currentUser?.email) {
-      throw new Error("Sesi CTO tidak ditemukan. Silakan login ulang.");
-    }
-
-    const credential = EmailAuthProvider.credential(
-      currentUser.email,
-      payload.password
-    );
-
-    await reauthenticateWithCredential(currentUser, credential);
+    await reauthenticateCTO(payload.password);
 
     await upsertSystemConfig({
       settings: {

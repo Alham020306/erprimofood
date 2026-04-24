@@ -33,7 +33,7 @@ const titleMap: Record<string, string> = {
   updates: "Update Center",
   finance: "Ledger",
   reports: "Reports",
-  systems: "System Logs",
+  systems: "System Settings",
   security: "Alerts & Errors",
   campaigns: "Campaigns",
   assets: "Operational Map",

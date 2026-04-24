@@ -1,19 +1,27 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
-import { collection, onSnapshot, doc, updateDoc, serverTimestamp, query, where, getDocs, writeBatch } from "firebase/firestore";
+import {
+  collection,
+  doc,
+  onSnapshot,
+  serverTimestamp,
+  writeBatch,
+} from "firebase/firestore";
 import { dbMain } from "../../../core/firebase/firebaseMain";
 
-// Commission rates configuration
-const COMMISSION_RATES = {
-  RESTAURANT: 0.20, // 20% dari restaurant
-  DRIVER: 0.15,     // 15% dari driver
+const DEFAULT_COMMISSION_RATES = {
+  RESTAURANT: 0.05,
+  DRIVER: 0.20,
 };
 
 type EntityType = "RESTAURANT" | "DRIVER";
+type CommissionStatus = "UNPAID" | "PAID";
 
 interface Order {
   id: string;
   restaurantId?: string;
+  restaurantName?: string;
   driverId?: string;
+  driverName?: string;
   total: number;
   deliveryFee?: number;
   status: string;
@@ -21,20 +29,34 @@ interface Order {
   createdAt?: any;
   restoCommissionPaid?: boolean;
   driverCommissionPaid?: boolean;
-  restoEarnings?: number;
-  driverEarnings?: number;
+}
+
+interface CommissionRecord {
+  id: string;
+  orderId: string;
+  type: EntityType;
+  entityId: string;
+  entityName: string;
+  amount: number;
+  status: CommissionStatus;
+  createdAt: number;
+  paidAt?: any;
+  orderTotal?: number;
+  deliveryFee?: number;
+  commissionRate: number;
 }
 
 interface EntitySummary {
   entityId: string;
   entityName: string;
+  commissionRate: number;
   totalUnpaid: number;
   totalPaid: number;
   unpaidCount: number;
   paidCount: number;
   oldestUnpaidDate?: number;
   isBanned: boolean;
-  orders: Order[];
+  orders: CommissionRecord[];
 }
 
 interface SettlementSummary {
@@ -47,16 +69,34 @@ interface SettlementSummary {
   driverPaid: number;
 }
 
+const normalizePercentToRate = (value: unknown, fallback: number) => {
+  const raw = Number(value);
+  if (!Number.isFinite(raw) || raw < 0) return fallback;
+  return raw > 1 ? raw / 100 : raw;
+};
+
+const timestampToNumber = (value: any) => {
+  if (typeof value === "number") return value;
+  if (typeof value?.toMillis === "function") return value.toMillis();
+  if (typeof value?.seconds === "number") return value.seconds * 1000;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : Date.now();
+};
+
+const buildCommissionId = (type: EntityType, orderId: string) =>
+  `${type.toLowerCase()}_${orderId}`;
+
 export const useCFOSettlementsV2 = () => {
   const [loading, setLoading] = useState(true);
   const [orders, setOrders] = useState<Order[]>([]);
   const [restaurants, setRestaurants] = useState<any[]>([]);
   const [drivers, setDrivers] = useState<any[]>([]);
+  const [commissions, setCommissions] = useState<CommissionRecord[]>([]);
+  const [systemConfig, setSystemConfig] = useState<any | null>(null);
   const [entityType, setEntityType] = useState<EntityType>("RESTAURANT");
   const [selectedEntity, setSelectedEntity] = useState<EntitySummary | null>(null);
   const [processing, setProcessing] = useState(false);
 
-  // Subscribe to data
   useEffect(() => {
     setLoading(true);
 
@@ -64,16 +104,19 @@ export const useCFOSettlementsV2 = () => {
       orders: [] as Order[],
       restaurants: [] as any[],
       drivers: [] as any[],
+      commissions: [] as CommissionRecord[],
+      systemConfig: null as any,
     };
 
     const emit = () => {
       setOrders([...state.orders]);
       setRestaurants([...state.restaurants]);
       setDrivers([...state.drivers]);
+      setCommissions([...state.commissions]);
+      setSystemConfig(state.systemConfig);
       setLoading(false);
     };
 
-    // Subscribe orders
     const unsubOrders = onSnapshot(
       collection(dbMain, "orders"),
       (snap) => {
@@ -83,7 +126,6 @@ export const useCFOSettlementsV2 = () => {
       (err) => console.error("orders error:", err)
     );
 
-    // Subscribe restaurants
     const unsubRestaurants = onSnapshot(
       collection(dbMain, "restaurants"),
       (snap) => {
@@ -93,7 +135,6 @@ export const useCFOSettlementsV2 = () => {
       (err) => console.error("restaurants error:", err)
     );
 
-    // Subscribe users (drivers)
     const unsubUsers = onSnapshot(
       collection(dbMain, "users"),
       (snap) => {
@@ -105,123 +146,301 @@ export const useCFOSettlementsV2 = () => {
       (err) => console.error("users error:", err)
     );
 
+    const unsubCommissions = onSnapshot(
+      collection(dbMain, "commissions"),
+      (snap) => {
+        state.commissions = snap.docs.map(
+          (d) => ({ id: d.id, ...d.data() } as CommissionRecord)
+        );
+        emit();
+      },
+      (err) => console.error("commissions error:", err)
+    );
+
+    const unsubSystemConfig = onSnapshot(
+      doc(dbMain, "system", "config"),
+      (snap) => {
+        state.systemConfig = snap.exists() ? { id: snap.id, ...snap.data() } : null;
+        emit();
+      },
+      (err) => console.error("system config error:", err)
+    );
+
     return () => {
       unsubOrders();
       unsubRestaurants();
       unsubUsers();
+      unsubCommissions();
+      unsubSystemConfig();
     };
   }, []);
 
-  // Calculate commission for an order
-  const calculateCommission = useCallback((order: Order, type: EntityType): number => {
-    if (type === "RESTAURANT") {
-      const itemsTotal = (order.total || 0) - (order.deliveryFee || 0);
-      const restoEarnings = order.restoEarnings || itemsTotal * (1 - COMMISSION_RATES.RESTAURANT);
-      const commission = itemsTotal - restoEarnings;
-      return Math.max(0, commission);
-    } else {
-      const driverEarnings = order.driverEarnings || (order.deliveryFee || 0) * (1 - COMMISSION_RATES.DRIVER);
-      const commission = (order.deliveryFee || 0) - driverEarnings;
-      return Math.max(0, commission);
-    }
-  }, []);
+  const commissionRates = useMemo(
+    () => {
+      const configSource = systemConfig?.settings || systemConfig || {};
 
-  // Build entity summaries
+      return {
+        RESTAURANT: normalizePercentToRate(
+          configSource?.serviceFeePercent,
+          DEFAULT_COMMISSION_RATES.RESTAURANT
+        ),
+        DRIVER: normalizePercentToRate(
+          configSource?.driverCommissionPercent,
+          DEFAULT_COMMISSION_RATES.DRIVER
+        ),
+      };
+    },
+    [systemConfig]
+  );
+
+  const resolveEntityCommissionRate = useCallback(
+    (entity: any, type: EntityType) => {
+      const fallback =
+        type === "RESTAURANT" ? commissionRates.RESTAURANT : commissionRates.DRIVER;
+      return normalizePercentToRate(entity?.customCommissionPercent, fallback);
+    },
+    [commissionRates]
+  );
+
+  const calculateCommissionAmount = useCallback(
+    (order: Order, type: EntityType, rate: number) => {
+      if (type === "RESTAURANT") {
+        const itemsTotal = Math.max(0, (order.total || 0) - (order.deliveryFee || 0));
+        return Math.max(0, Math.round(itemsTotal * rate));
+      }
+
+      return Math.max(0, Math.round((order.deliveryFee || 0) * rate));
+    },
+    []
+  );
+
+  useEffect(() => {
+    if (!orders.length) return;
+
+    const commissionsById = new Map(commissions.map((item) => [item.id, item]));
+    const batch = writeBatch(dbMain);
+    let hasWrites = false;
+
+    const writeCommission = (
+      type: EntityType,
+      order: Order,
+      entity: any,
+      entityId: string,
+      entityName: string,
+      paidFlag: boolean
+    ) => {
+      if (!entityId) return;
+
+      const commissionRate = resolveEntityCommissionRate(entity, type);
+      const commissionId = buildCommissionId(type, order.id);
+      const existing = commissionsById.get(commissionId);
+      const payload: Omit<CommissionRecord, "id"> = {
+        orderId: order.id,
+        type,
+        entityId,
+        entityName,
+        amount: calculateCommissionAmount(order, type, commissionRate),
+        status: paidFlag ? "PAID" : "UNPAID",
+        createdAt: timestampToNumber(order.timestamp ?? order.createdAt),
+        paidAt: paidFlag ? existing?.paidAt || serverTimestamp() : null,
+        orderTotal: Number(order.total || 0),
+        deliveryFee: Number(order.deliveryFee || 0),
+        commissionRate,
+      };
+
+      const changed =
+        !existing ||
+        existing.entityId !== payload.entityId ||
+        existing.entityName !== payload.entityName ||
+        Number(existing.amount || 0) !== payload.amount ||
+        existing.status !== payload.status ||
+        Number(existing.orderTotal || 0) !== payload.orderTotal ||
+        Number(existing.deliveryFee || 0) !== payload.deliveryFee ||
+        Number(existing.commissionRate || 0) !== payload.commissionRate;
+
+      if (!changed) return;
+
+      batch.set(doc(dbMain, "commissions", commissionId), payload);
+      hasWrites = true;
+    };
+
+    orders
+      .filter((order) => order.status === "COMPLETED")
+      .forEach((order) => {
+        if (order.restaurantId) {
+          const restaurant = restaurants.find((item) => item.id === order.restaurantId);
+          writeCommission(
+            "RESTAURANT",
+            order,
+            restaurant,
+            order.restaurantId,
+            restaurant?.name || order.restaurantName || "Unknown",
+            order.restoCommissionPaid === true
+          );
+        }
+
+        if (order.driverId) {
+          const driver = drivers.find((item) => item.id === order.driverId);
+          writeCommission(
+            "DRIVER",
+            order,
+            driver,
+            order.driverId,
+            driver?.name || driver?.fullName || order.driverName || "Unknown",
+            order.driverCommissionPaid === true
+          );
+        }
+      });
+
+    if (!hasWrites) return;
+
+    batch.commit().catch((error) => {
+      console.error("Failed to sync commission records:", error);
+    });
+  }, [
+    orders,
+    restaurants,
+    drivers,
+    commissions,
+    resolveEntityCommissionRate,
+    calculateCommissionAmount,
+  ]);
+
   const restaurantSummaries = useMemo((): EntitySummary[] => {
     const map = new Map<string, EntitySummary>();
 
-    // Initialize with all restaurants
-    restaurants.forEach((r) => {
-      map.set(r.id, {
-        entityId: r.id,
-        entityName: r.name || r.restaurantName || "Unknown",
+    restaurants.forEach((restaurant) => {
+      map.set(restaurant.id, {
+        entityId: restaurant.id,
+        entityName: restaurant.name || restaurant.restaurantName || "Unknown",
+        commissionRate: resolveEntityCommissionRate(restaurant, "RESTAURANT"),
         totalUnpaid: 0,
-        totalPaid: Number(r.totalPaidCommission || 0),
+        totalPaid: 0,
         unpaidCount: 0,
         paidCount: 0,
-        isBanned: r.isBanned || false,
+        isBanned: restaurant.isBanned || false,
         orders: [],
       });
     });
 
-    // Process orders
-    orders
-      .filter((o) => o.status === "COMPLETED" && o.restaurantId)
-      .forEach((order) => {
-        const summary = map.get(order.restaurantId!);
-        if (!summary) return;
+    commissions
+      .filter((record) => record.type === "RESTAURANT")
+      .forEach((record) => {
+        const existing =
+          map.get(record.entityId) ||
+          ({
+            entityId: record.entityId,
+            entityName: record.entityName || "Unknown",
+            commissionRate: normalizePercentToRate(
+              record.commissionRate,
+              commissionRates.RESTAURANT
+            ),
+            totalUnpaid: 0,
+            totalPaid: 0,
+            unpaidCount: 0,
+            paidCount: 0,
+            isBanned: false,
+            orders: [],
+          } as EntitySummary);
 
-        const commission = calculateCommission(order, "RESTAURANT");
-        const isPaid = order.restoCommissionPaid === true;
-
-        if (isPaid) {
-          summary.totalPaid += commission;
-          summary.paidCount++;
+        if (record.status === "PAID") {
+          existing.totalPaid += Number(record.amount || 0);
+          existing.paidCount += 1;
         } else {
-          summary.totalUnpaid += commission;
-          summary.unpaidCount++;
-          if (!summary.oldestUnpaidDate || (order.timestamp && order.timestamp < summary.oldestUnpaidDate)) {
-            summary.oldestUnpaidDate = order.timestamp;
+          existing.totalUnpaid += Number(record.amount || 0);
+          existing.unpaidCount += 1;
+          if (
+            !existing.oldestUnpaidDate ||
+            Number(record.createdAt || 0) < existing.oldestUnpaidDate
+          ) {
+            existing.oldestUnpaidDate = Number(record.createdAt || 0);
           }
         }
 
-        summary.orders.push(order);
+        existing.orders.push(record);
+        map.set(record.entityId, existing);
       });
 
     return Array.from(map.values()).sort((a, b) => b.totalUnpaid - a.totalUnpaid);
-  }, [orders, restaurants, calculateCommission]);
+  }, [restaurants, commissions, commissionRates.RESTAURANT, resolveEntityCommissionRate]);
 
   const driverSummaries = useMemo((): EntitySummary[] => {
     const map = new Map<string, EntitySummary>();
 
-    // Initialize with all drivers
-    drivers.forEach((d) => {
-      map.set(d.id, {
-        entityId: d.id,
-        entityName: d.name || d.fullName || "Unknown",
+    drivers.forEach((driver) => {
+      map.set(driver.id, {
+        entityId: driver.id,
+        entityName: driver.name || driver.fullName || "Unknown",
+        commissionRate: resolveEntityCommissionRate(driver, "DRIVER"),
         totalUnpaid: 0,
-        totalPaid: Number(d.totalPaidCommission || 0),
+        totalPaid: 0,
         unpaidCount: 0,
         paidCount: 0,
-        isBanned: d.isBanned || false,
+        isBanned: driver.isBanned || false,
         orders: [],
       });
     });
 
-    // Process orders
-    orders
-      .filter((o) => o.status === "COMPLETED" && o.driverId)
-      .forEach((order) => {
-        const summary = map.get(order.driverId!);
-        if (!summary) return;
+    commissions
+      .filter((record) => record.type === "DRIVER")
+      .forEach((record) => {
+        const existing =
+          map.get(record.entityId) ||
+          ({
+            entityId: record.entityId,
+            entityName: record.entityName || "Unknown",
+            commissionRate: normalizePercentToRate(
+              record.commissionRate,
+              commissionRates.DRIVER
+            ),
+            totalUnpaid: 0,
+            totalPaid: 0,
+            unpaidCount: 0,
+            paidCount: 0,
+            isBanned: false,
+            orders: [],
+          } as EntitySummary);
 
-        const commission = calculateCommission(order, "DRIVER");
-        const isPaid = order.driverCommissionPaid === true;
-
-        if (isPaid) {
-          summary.totalPaid += commission;
-          summary.paidCount++;
+        if (record.status === "PAID") {
+          existing.totalPaid += Number(record.amount || 0);
+          existing.paidCount += 1;
         } else {
-          summary.totalUnpaid += commission;
-          summary.unpaidCount++;
-          if (!summary.oldestUnpaidDate || (order.timestamp && order.timestamp < summary.oldestUnpaidDate)) {
-            summary.oldestUnpaidDate = order.timestamp;
+          existing.totalUnpaid += Number(record.amount || 0);
+          existing.unpaidCount += 1;
+          if (
+            !existing.oldestUnpaidDate ||
+            Number(record.createdAt || 0) < existing.oldestUnpaidDate
+          ) {
+            existing.oldestUnpaidDate = Number(record.createdAt || 0);
           }
         }
 
-        summary.orders.push(order);
+        existing.orders.push(record);
+        map.set(record.entityId, existing);
       });
 
     return Array.from(map.values()).sort((a, b) => b.totalUnpaid - a.totalUnpaid);
-  }, [orders, drivers, calculateCommission]);
+  }, [drivers, commissions, commissionRates.DRIVER, resolveEntityCommissionRate]);
 
   const currentList = entityType === "RESTAURANT" ? restaurantSummaries : driverSummaries;
 
   const summary: SettlementSummary = useMemo(() => {
-    const restaurantUnpaid = restaurantSummaries.reduce((sum, s) => sum + s.totalUnpaid, 0);
-    const restaurantPaid = restaurantSummaries.reduce((sum, s) => sum + s.totalPaid, 0);
-    const driverUnpaid = driverSummaries.reduce((sum, s) => sum + s.totalUnpaid, 0);
-    const driverPaid = driverSummaries.reduce((sum, s) => sum + s.totalPaid, 0);
+    const restaurantUnpaid = restaurantSummaries.reduce(
+      (sum, item) => sum + item.totalUnpaid,
+      0
+    );
+    const restaurantPaid = restaurantSummaries.reduce(
+      (sum, item) => sum + item.totalPaid,
+      0
+    );
+    const driverUnpaid = driverSummaries.reduce(
+      (sum, item) => sum + item.totalUnpaid,
+      0
+    );
+    const driverPaid = driverSummaries.reduce(
+      (sum, item) => sum + item.totalPaid,
+      0
+    );
 
     return {
       totalUnpaid: restaurantUnpaid + driverUnpaid,
@@ -234,65 +453,63 @@ export const useCFOSettlementsV2 = () => {
     };
   }, [restaurantSummaries, driverSummaries]);
 
-  // Mark entity as paid - marks all unpaid orders as paid
-  const markAsPaid = useCallback(async (entityId: string, type: EntityType): Promise<boolean> => {
-    try {
-      setProcessing(true);
+  const markAsPaid = useCallback(
+    async (entityId: string, type: EntityType): Promise<boolean> => {
+      try {
+        setProcessing(true);
 
-      const entityOrders = orders.filter((o) => {
-        if (type === "RESTAURANT") return o.restaurantId === entityId && o.status === "COMPLETED";
-        return o.driverId === entityId && o.status === "COMPLETED";
-      });
+        const targetRecords = commissions.filter(
+          (record) =>
+            record.entityId === entityId &&
+            record.type === type &&
+            record.status !== "PAID"
+        );
 
-      const unpaidOrders = entityOrders.filter((o) => {
-        if (type === "RESTAURANT") return !o.restoCommissionPaid;
-        return !o.driverCommissionPaid;
-      });
+        if (!targetRecords.length) return true;
 
-      if (unpaidOrders.length === 0) {
-        console.log("No unpaid orders found");
+        const batch = writeBatch(dbMain);
+
+        targetRecords.forEach((record) => {
+          batch.update(doc(dbMain, "commissions", record.id), {
+            status: "PAID",
+            paidAt: serverTimestamp(),
+          });
+
+          const orderRef = doc(dbMain, "orders", record.orderId);
+          if (type === "RESTAURANT") {
+            batch.update(orderRef, {
+              restoCommissionPaid: true,
+              restoCommissionPaidAt: serverTimestamp(),
+            });
+          } else {
+            batch.update(orderRef, {
+              driverCommissionPaid: true,
+              driverCommissionPaidAt: serverTimestamp(),
+            });
+          }
+        });
+
+        await batch.commit();
         return true;
+      } catch (error) {
+        console.error("Error marking commission as paid:", error);
+        return false;
+      } finally {
+        setProcessing(false);
       }
+    },
+    [commissions]
+  );
 
-      // Use batch write for atomic updates
-      const batch = writeBatch(dbMain);
-
-      unpaidOrders.forEach((order) => {
-        const orderRef = doc(dbMain, "orders", order.id);
-        if (type === "RESTAURANT") {
-          batch.update(orderRef, {
-            restoCommissionPaid: true,
-            restoCommissionPaidAt: serverTimestamp(),
-          });
-        } else {
-          batch.update(orderRef, {
-            driverCommissionPaid: true,
-            driverCommissionPaidAt: serverTimestamp(),
-          });
-        }
-      });
-
-      await batch.commit();
-      console.log(`Marked ${unpaidOrders.length} orders as paid for ${type} ${entityId}`);
-
-      return true;
-    } catch (error) {
-      console.error("Error marking as paid:", error);
-      return false;
-    } finally {
-      setProcessing(false);
-    }
-  }, [orders]);
-
-  // Unban entity
   const unbanEntity = useCallback(async (entityId: string, type: EntityType): Promise<boolean> => {
     try {
-      const collectionName = type === "RESTAURANT" ? "restaurants" : "users";
-      const entityRef = doc(dbMain, collectionName, entityId);
-      await updateDoc(entityRef, {
+      const entityRef = doc(dbMain, type === "RESTAURANT" ? "restaurants" : "users", entityId);
+      const batch = writeBatch(dbMain);
+      batch.update(entityRef, {
         isBanned: false,
         unbannedAt: serverTimestamp(),
       });
+      await batch.commit();
       return true;
     } catch (error) {
       console.error("Error unbanning entity:", error);
@@ -312,8 +529,9 @@ export const useCFOSettlementsV2 = () => {
     restaurantSummaries,
     driverSummaries,
     orders,
+    commissions,
     markAsPaid,
     unbanEntity,
-    commissionRates: COMMISSION_RATES,
+    commissionRates,
   };
 };

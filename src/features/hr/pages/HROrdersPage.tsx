@@ -76,7 +76,11 @@ const StatBlock = ({
   </div>
 );
 
-export default function HROrdersPage() {
+type Props = {
+  mode?: "HR" | "CFO";
+};
+
+export default function HROrdersPage({ mode = "HR" }: Props) {
   const {
     loading,
     orders,
@@ -108,25 +112,38 @@ export default function HROrdersPage() {
     : Array.isArray(selectedOrder?.itemPreview)
     ? selectedOrder.itemPreview
     : [];
+  const isCFO = mode === "CFO";
 
   return (
     <div className="space-y-8 pb-20">
       <div className="grid gap-6 md:grid-cols-3">
         <StatBlock
-          title="Total Transactions"
-          value={String(summary.total || 0)}
-          hint="Seluruh order sinkronisasi yang tersedia untuk tim HR."
+          title={isCFO ? "Completed Revenue" : "Total Transactions"}
+          value={isCFO ? formatMoney(summary.completedRevenue) : String(summary.total || 0)}
+          hint={
+            isCFO
+              ? "Total harga transaksi dari seluruh order completed."
+              : "Seluruh order sinkronisasi yang tersedia untuk tim HR."
+          }
           dark
         />
         <StatBlock
-          title="Active Queue"
-          value={String(summary.activeQueue || 0)}
-          hint="Order aktif yang masih bergerak di operasional."
+          title={isCFO ? "Completed Orders" : "Active Queue"}
+          value={String(isCFO ? summary.completed || 0 : summary.activeQueue || 0)}
+          hint={
+            isCFO
+              ? "Jumlah order yang sudah selesai dan masuk transaksi."
+              : "Order aktif yang masih bergerak di operasional."
+          }
         />
         <StatBlock
-          title="Attention Queue"
-          value={String(attentionOrders.length)}
-          hint="Order yang perlu perhatian cepat dari sisi people ops."
+          title={isCFO ? "Cancelled Orders" : "Attention Queue"}
+          value={String(isCFO ? summary.cancelled || 0 : attentionOrders.length)}
+          hint={
+            isCFO
+              ? "Jumlah order berstatus cancel atau rejected."
+              : "Order yang perlu perhatian cepat dari sisi people ops."
+          }
         />
       </div>
 
@@ -139,7 +156,7 @@ export default function HROrdersPage() {
               </div>
               <div>
                 <div className="text-[10px] font-black uppercase tracking-[0.28em] text-slate-400">
-                  HR Orders Mirror
+                  {isCFO ? "CFO Orders Mirror" : "HR Orders Mirror"}
                 </div>
                 <h2 className="mt-2 text-2xl font-black text-slate-900">
                   Filter Data

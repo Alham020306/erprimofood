@@ -108,21 +108,24 @@ export default function CFOSettlementsPageV2({ user }: Props) {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <section className="rounded-[28px] border border-indigo-200/70 bg-gradient-to-br from-indigo-50 via-white to-purple-50 p-6 shadow-sm">
+      <section className="relative overflow-hidden rounded-[32px] border border-emerald-500/20 bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.14),_transparent_28%),radial-gradient(circle_at_bottom_right,_rgba(99,102,241,0.16),_transparent_26%),linear-gradient(135deg,_#020617_0%,_#0f172a_52%,_#111827_100%)] p-6 text-white shadow-[0_24px_80px_rgba(15,23,42,0.35)]">
+        <div className="absolute inset-0 opacity-20" style={{ backgroundImage: "radial-gradient(rgba(255,255,255,0.08) 1px, transparent 1px)", backgroundSize: "18px 18px" }} />
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-              <PieChart size={24} className="text-indigo-600" />
+          <div className="relative z-10">
+            <div className="inline-flex rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.2em] text-emerald-200">
+              Settlement Desk
+            </div>
+            <h1 className="mt-3 flex items-center gap-2 text-2xl font-black tracking-tight text-white">
+              <PieChart size={24} className="text-emerald-300" />
               Settlement Management
             </h1>
-            <p className="text-sm text-slate-500 mt-1">
+            <p className="mt-2 text-sm text-slate-300">
               Kelola komisi dan pembayaran ke restaurant & driver
             </p>
           </div>
           <button
             onClick={exportToJSON}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold transition-colors"
+            className="relative z-10 inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/10 px-4 py-2 text-sm font-bold text-white transition hover:bg-white/15"
           >
             <Download size={16} /> Export JSON
           </button>
@@ -130,10 +133,10 @@ export default function CFOSettlementsPageV2({ user }: Props) {
       </section>
 
       {/* Summary Cards */}
-      <SettlementSummaryCardsV2 summary={summary} />
+      <SettlementSummaryCardsV2 summary={summary} commissionRates={commissionRates} />
 
       {/* Entity Type Tabs */}
-      <div className="flex gap-2 border-b border-slate-200">
+      <div className="flex gap-2 rounded-[24px] border border-slate-200 bg-white p-2 shadow-sm">
         {[
           { key: "RESTAURANT", label: "Restaurant", icon: Building, count: restaurantSummaries.length },
           { key: "DRIVER", label: "Driver", icon: Truck, count: driverSummaries.length },
@@ -141,10 +144,10 @@ export default function CFOSettlementsPageV2({ user }: Props) {
           <button
             key={tab.key}
             onClick={() => setEntityType(tab.key as any)}
-            className={`flex items-center gap-2 px-4 py-3 text-sm font-medium ${
+            className={`flex flex-1 items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium transition ${
               entityType === tab.key
-                ? "border-b-2 border-indigo-600 text-indigo-600"
-                : "text-slate-600 hover:text-slate-900"
+                ? "bg-gradient-to-r from-emerald-500 via-blue-500 to-violet-500 text-white shadow-lg"
+                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
             }`}
           >
             <tab.icon size={16} />
@@ -187,6 +190,7 @@ export default function CFOSettlementsPageV2({ user }: Props) {
         }}
         entity={selectedEntity}
         entityType={entityType}
+        commissionRates={commissionRates}
       />
 
       {/* Confirm Modal */}

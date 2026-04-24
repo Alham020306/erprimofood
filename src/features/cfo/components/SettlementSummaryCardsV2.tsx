@@ -13,9 +13,13 @@ interface SettlementSummary {
 
 type Props = {
   summary: SettlementSummary;
+  commissionRates: {
+    RESTAURANT: number;
+    DRIVER: number;
+  };
 };
 
-export default function SettlementSummaryCardsV2({ summary }: Props) {
+export default function SettlementSummaryCardsV2({ summary, commissionRates }: Props) {
   return (
     <div className="space-y-4">
       {/* Main Summary Cards */}
@@ -95,7 +99,7 @@ export default function SettlementSummaryCardsV2({ summary }: Props) {
           <div>
             <p className="text-sm font-medium text-indigo-800">Konfigurasi Komisi</p>
             <p className="text-xs text-indigo-600 mt-1">
-              Restoran: <span className="font-bold">20%</span> | Driver: <span className="font-bold">15%</span>
+              Restoran: <span className="font-bold">{(commissionRates.RESTAURANT * 100).toFixed(0)}%</span> | Driver: <span className="font-bold">{(commissionRates.DRIVER * 100).toFixed(0)}%</span>
             </p>
           </div>
         </div>
