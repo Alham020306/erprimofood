@@ -1,6 +1,7 @@
 import { ReactNode, useMemo, useState } from "react";
 import {
   Activity,
+  ClipboardList,
   LogOut,
   Menu,
   MessageCircle,
@@ -36,6 +37,14 @@ const menuItems: NavItem[] = [
   { id: "support", label: "User Support", icon: MessageCircle, color: "text-yellow-600" },
 ];
 
+const mobileQuickNav: NavItem[] = [
+  { id: "dashboard", label: "Overview", icon: Activity, color: "text-indigo-500" },
+  { id: "transactions", label: "Orders", icon: Receipt, color: "text-emerald-500" },
+  { id: "users", label: "Users", icon: Users, color: "text-blue-500" },
+  { id: "attendance", label: "Attendance", icon: ClipboardList, color: "text-cyan-500" },
+  { id: "support", label: "Support", icon: MessageCircle, color: "text-yellow-600" },
+];
+
 const titleMap: Record<string, string> = {
   dashboard: "Overview",
   transactions: "Transactions",
@@ -68,7 +77,7 @@ export default function AdminSuperLayout({
       />
 
       <aside
-        className={`fixed bottom-0 left-0 top-0 z-[70] flex w-[85%] max-w-[320px] flex-col overflow-hidden rounded-r-[2.5rem] bg-slate-50 shadow-2xl transition-transform duration-500 ${
+        className={`fixed bottom-0 left-0 top-0 z-[70] flex w-[88vw] max-w-[360px] flex-col overflow-hidden rounded-r-[2.5rem] bg-slate-50 shadow-2xl transition-transform duration-500 ${
           isMobileSidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -229,7 +238,7 @@ export default function AdminSuperLayout({
       </div>
 
       <div className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
-        <header className="sticky top-0 z-40 flex h-20 shrink-0 items-center justify-between border-b border-slate-100 bg-white/90 px-6 backdrop-blur-xl md:h-24 md:px-12">
+        <header className="sticky top-0 z-40 flex h-20 shrink-0 items-center justify-between border-b border-slate-100 bg-white/90 px-4 backdrop-blur-xl sm:px-6 md:h-24 md:px-12">
           <div className="flex items-center gap-4">
             <button
               type="button"
@@ -266,18 +275,13 @@ export default function AdminSuperLayout({
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto bg-slate-50/50 p-6 pb-32 md:p-12 lg:pb-12">
+        <main className="flex-1 overflow-y-auto bg-slate-50/50 p-4 pb-36 sm:p-6 md:p-10 lg:pb-12 xl:p-12">
           <div className="mx-auto w-full max-w-7xl">{children}</div>
         </main>
 
-        <div className="fixed bottom-0 left-0 right-0 z-[100] bg-gradient-to-t from-slate-50 via-slate-50 to-transparent px-6 pb-10 pt-4 lg:hidden">
-          <nav className="flex h-20 items-center justify-around rounded-[2.5rem] border border-white/10 bg-slate-950/95 p-2 shadow-2xl backdrop-blur-3xl">
-            {[
-              { id: "dashboard", icon: Activity },
-              { id: "transactions", icon: Receipt },
-              { id: "users", icon: Users },
-              { id: "support", icon: MessageCircle },
-            ].map((nav) => {
+        <div className="fixed bottom-0 left-0 right-0 z-[100] bg-gradient-to-t from-slate-50 via-slate-50/95 to-transparent px-3 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4 lg:hidden">
+          <nav className="grid grid-cols-5 gap-2 rounded-[2rem] border border-white/10 bg-slate-950/95 p-2 shadow-2xl backdrop-blur-3xl">
+            {mobileQuickNav.map((nav) => {
               const Icon = nav.icon;
               const active = activePage === nav.id;
               return (
@@ -285,13 +289,16 @@ export default function AdminSuperLayout({
                   key={nav.id}
                   type="button"
                   onClick={() => onNavigate(nav.id)}
-                  className={`flex h-14 w-14 items-center justify-center rounded-2xl transition-all duration-500 ${
+                  className={`flex min-h-[68px] flex-col items-center justify-center gap-1 rounded-2xl px-2 py-2 text-center transition-all duration-500 ${
                     active
-                      ? "translate-y-[-10px] scale-110 bg-rimo-500 text-white shadow-glow"
-                      : "text-slate-500"
+                      ? "translate-y-[-6px] bg-gradient-to-r from-cyan-500 to-violet-500 text-white shadow-glow"
+                      : "text-slate-400"
                   }`}
                 >
-                  <Icon size={22} strokeWidth={active ? 3 : 2} />
+                  <Icon size={20} strokeWidth={active ? 3 : 2} />
+                  <span className="text-[10px] font-semibold leading-tight">
+                    {nav.label}
+                  </span>
                 </button>
               );
             })}

@@ -47,7 +47,9 @@ export const useCOOOrders = () => {
       return status === "CANCELLED" || status === "REJECTED";
     }).length;
 
-    const totalValue = base.reduce(
+    const totalValue = base
+      .filter((o: any) => String(o?.status || "").toUpperCase() === "COMPLETED")
+      .reduce(
       (sum: number, o: any) => sum + Number(o?.total || o?.totalPrice || 0),
       0
     );

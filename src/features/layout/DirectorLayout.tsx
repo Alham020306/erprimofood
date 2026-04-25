@@ -70,15 +70,42 @@ export default function DirectorLayout({
     [user.primaryRole]
   );
   const showMobileBottomNav =
-    user.primaryRole === UserRole.CTO || user.primaryRole === UserRole.CFO;
-  const bottomNavActiveClass =
-    user.primaryRole === UserRole.CFO
-      ? "bg-gradient-to-r from-emerald-500/20 via-blue-500/20 to-violet-500/20 text-emerald-200"
-      : "bg-cyan-500/15 text-cyan-200";
-  const bottomNavIdleClass =
-    user.primaryRole === UserRole.CFO
-      ? "text-slate-400 hover:bg-white/5 hover:text-emerald-100"
-      : "text-slate-400 hover:bg-white/5 hover:text-white";
+    user.primaryRole === UserRole.CTO ||
+    user.primaryRole === UserRole.CFO ||
+    user.primaryRole === UserRole.COO ||
+    user.primaryRole === UserRole.HR;
+  const bottomNavTheme = useMemo(() => {
+    switch (user.primaryRole) {
+      case UserRole.CFO:
+        return {
+          shell: "border-white/10 bg-slate-950/95",
+          active:
+            "bg-gradient-to-r from-emerald-500/20 via-blue-500/20 to-violet-500/20 text-emerald-200 shadow-[0_12px_32px_rgba(59,130,246,0.18)]",
+          idle: "text-slate-400 hover:bg-white/5 hover:text-emerald-100",
+        };
+      case UserRole.COO:
+        return {
+          shell: "border-emerald-200/70 bg-white/92",
+          active:
+            "bg-gradient-to-r from-emerald-500 to-lime-500 text-white shadow-[0_12px_28px_rgba(34,197,94,0.22)]",
+          idle: "text-slate-500 hover:bg-emerald-50 hover:text-emerald-700",
+        };
+      case UserRole.HR:
+        return {
+          shell: "border-teal-200/70 bg-white/92",
+          active:
+            "bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-[0_12px_28px_rgba(20,184,166,0.2)]",
+          idle: "text-slate-500 hover:bg-teal-50 hover:text-teal-700",
+        };
+      default:
+        return {
+          shell: "border-white/10 bg-slate-950/95",
+          active:
+            "bg-cyan-500/15 text-cyan-200 shadow-[0_12px_32px_rgba(34,211,238,0.18)]",
+          idle: "text-slate-400 hover:bg-white/5 hover:text-white",
+        };
+    }
+  }, [user.primaryRole]);
 
   return (
     <div className={`flex min-h-screen ${theme.shell}`}>
@@ -123,7 +150,9 @@ export default function DirectorLayout({
       </div>
 
       {showMobileBottomNav ? (
-        <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-slate-950/95 px-2 py-2 backdrop-blur-xl lg:hidden">
+        <nav
+          className={`fixed inset-x-0 bottom-0 z-40 border-t px-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 backdrop-blur-xl lg:hidden ${bottomNavTheme.shell}`}
+        >
           <div className="grid grid-cols-5 gap-2">
             {mobileNavItems.map((item) => {
               const active = activePage === item.key;
@@ -136,8 +165,8 @@ export default function DirectorLayout({
                   onClick={() => onNavigate(item.key)}
                   className={`flex min-h-[68px] flex-col items-center justify-center gap-1 rounded-2xl px-2 py-2 text-center transition ${
                     active
-                      ? bottomNavActiveClass
-                      : bottomNavIdleClass
+                      ? bottomNavTheme.active
+                      : bottomNavTheme.idle
                   }`}
                 >
                   <Icon className="h-4 w-4 shrink-0" />

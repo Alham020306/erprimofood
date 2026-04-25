@@ -121,8 +121,8 @@ export default function CTOSyncCenterPage() {
       const result = await runIncrementalDefaultSync();
       setMessage(
         result.errors.length
-          ? `Sync selesai dengan kendala. Baru: ${result.created}, update: ${result.updated}, skip: ${result.skipped}. Error: ${result.errors.join(" | ")}`
-          : `Sync incremental selesai. Baru: ${result.created}, update: ${result.updated}, skip: ${result.skipped}.`
+          ? `Sync selesai dengan kendala. Baru: ${result.created}, update: ${result.updated}, hapus stale: ${result.deleted ?? 0}, skip: ${result.skipped}. Error: ${result.errors.join(" | ")}`
+          : `Sync incremental selesai. Baru: ${result.created}, update: ${result.updated}, hapus stale: ${result.deleted ?? 0}, skip: ${result.skipped}.`
       );
     } catch (error: any) {
       setMessage(error?.message || "Gagal menjalankan sync incremental.");

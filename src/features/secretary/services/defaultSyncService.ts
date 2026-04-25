@@ -1,6 +1,7 @@
 import {
   addDoc,
   collection,
+  deleteDoc,
   doc,
   getDoc,
   getDocs,
@@ -464,8 +465,10 @@ const upsertCollectionIncremental = async (table: SyncTableDefinition) => {
   let created = 0;
   let updated = 0;
   let skipped = 0;
+  let deleted = 0;
   let pendingOps = 0;
   let batch = writeBatch(dbCLevel);
+  const sourceIds = new Set<string>();
 
   const flush = async () => {
     if (pendingOps === 0) return;
@@ -475,6 +478,7 @@ const upsertCollectionIncremental = async (table: SyncTableDefinition) => {
   };
 
   for (const sourceDoc of sourceSnap.docs) {
+    sourceIds.add(sourceDoc.id);
     const sourceData = buildSyncPayload(table, sourceDoc.id, sourceDoc.data());
     const fingerprint = createFingerprint(sourceData);
     const existing = targetMap.get(sourceDoc.id);
@@ -516,14 +520,29 @@ const upsertCollectionIncremental = async (table: SyncTableDefinition) => {
 
   await flush();
 
+  for (const targetDoc of targetSnap.docs) {
+    if (isMetaDocId(targetDoc.id) || sourceIds.has(targetDoc.id)) continue;
+
+    batch.delete(doc(dbCLevel, table.target, targetDoc.id));
+    deleted += 1;
+    pendingOps += 1;
+
+    if (pendingOps >= 350) {
+      await flush();
+    }
+  }
+
+  await flush();
+
   await updateTableStatus(table, {
     status: "SYNCED",
     mode: "INCREMENTAL",
     sourceCount: sourceSnap.size,
-    targetCount: targetMap.size + created,
+    targetCount: sourceSnap.size,
     createdCount: created,
     updatedCount: updated,
     skippedCount: skipped,
+    deletedCount: deleted,
     lastSyncedAt: Date.now(),
     lastSyncedAtServer: serverTimestamp(),
   });
@@ -534,6 +553,7 @@ const upsertCollectionIncremental = async (table: SyncTableDefinition) => {
     created,
     updated,
     skipped,
+    deleted,
   };
 };
 
@@ -606,6 +626,7 @@ const upsertSingleDocumentIncremental = async (table: SyncTableDefinition) => {
     created: targetSnap.exists() ? 0 : 1,
     updated: targetSnap.exists() && existingFingerprint !== fingerprint ? 1 : 0,
     skipped: existingFingerprint === fingerprint ? 1 : 0,
+    deleted: 0,
   };
 };
 
@@ -680,6 +701,7 @@ export const runIncrementalDefaultSync = async () => {
   let created = 0;
   let updated = 0;
   let skipped = 0;
+  let deleted = 0;
   const errors: string[] = [];
 
   for (const table of DEFAULT_SYNC_TABLES) {
@@ -688,6 +710,7 @@ export const runIncrementalDefaultSync = async () => {
       created += result.created;
       updated += result.updated;
       skipped += result.skipped;
+      deleted += result.deleted || 0;
     } catch (error: any) {
       errors.push(`${table.key}: ${error?.message || String(error)}`);
       await updateTableStatus(table, {
@@ -708,6 +731,7 @@ export const runIncrementalDefaultSync = async () => {
     lastDefaultSyncCreated: created,
     lastDefaultSyncUpdated: updated,
     lastDefaultSyncSkipped: skipped,
+    lastDefaultSyncDeleted: deleted,
     lastDefaultSyncErrors: errors,
   });
 
@@ -719,6 +743,7 @@ export const runIncrementalDefaultSync = async () => {
     createdCount: created,
     updatedCount: updated,
     skippedCount: skipped,
+    deletedCount: deleted,
     errors,
   });
 
@@ -727,6 +752,7 @@ export const runIncrementalDefaultSync = async () => {
     created,
     updated,
     skipped,
+    deleted,
     errors,
   };
 };
@@ -783,7 +809,10 @@ export const startDefaultLiveSync = async () => {
         : onSnapshot(collection(dbMain, table.source), async (snap) => {
             try {
               for (const change of snap.docChanges()) {
-                if (change.type === "removed") continue;
+                if (change.type === "removed") {
+                  await deleteDoc(doc(dbCLevel, table.target, change.doc.id));
+                  continue;
+                }
                 await syncChangedDoc(table, change.doc.id, change.doc.data());
               }
 
