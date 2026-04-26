@@ -27,24 +27,40 @@ export const exportSettlementsToPDF = (
   // Summary box
   doc.setDrawColor(226, 232, 240); // slate-200
   doc.setFillColor(248, 250, 252); // slate-50
-  doc.roundedRect(14, 45, 182, 30, 3, 3, "FD");
+  doc.roundedRect(14, 42, 182, 40, 3, 3, "FD");
 
   doc.setFontSize(10);
   doc.setTextColor(15, 23, 42);
   doc.setFont("helvetica", "bold");
-  doc.text("Ringkasan Komisi", 20, 55);
+  doc.text("Ringkasan Komisi Keseluruhan", 20, 50);
 
+  doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
+  
+  // Mitra (Restaurant)
   doc.setTextColor(100, 116, 139);
-  doc.text("Total Terbayar:", 20, 65);
-  doc.text("Total Belum Dibayar:", 100, 65);
-
-  doc.setFont("helvetica", "bold");
+  doc.text("Total Mitra (Restoran):", 20, 58);
   doc.setTextColor(16, 185, 129); // emerald-500
-  doc.text(formatCurrency(summary.totalPaid), 50, 65);
-
+  doc.text(`Terbayar: ${formatCurrency(summary.restaurantPaid || 0)}`, 65, 58);
   doc.setTextColor(244, 63, 94); // rose-500
-  doc.text(formatCurrency(summary.totalUnpaid), 140, 65);
+  doc.text(`Belum Dibayar: ${formatCurrency(summary.restaurantUnpaid || 0)}`, 125, 58);
+
+  // Driver
+  doc.setTextColor(100, 116, 139);
+  doc.text("Total Driver:", 20, 65);
+  doc.setTextColor(16, 185, 129); // emerald-500
+  doc.text(`Terbayar: ${formatCurrency(summary.driverPaid || 0)}`, 65, 65);
+  doc.setTextColor(244, 63, 94); // rose-500
+  doc.text(`Belum Dibayar: ${formatCurrency(summary.driverUnpaid || 0)}`, 125, 65);
+
+  // Grand Total
+  doc.setTextColor(100, 116, 139);
+  doc.setFont("helvetica", "bold");
+  doc.text("Grand Total:", 20, 72);
+  doc.setTextColor(16, 185, 129); // emerald-500
+  doc.text(`Terbayar: ${formatCurrency(summary.totalPaid || 0)}`, 65, 72);
+  doc.setTextColor(244, 63, 94); // rose-500
+  doc.text(`Belum Dibayar: ${formatCurrency(summary.totalUnpaid || 0)}`, 125, 72);
 
   // Table Data
   const tableColumn = ["Entitas", "Pendapatan Kotor", "Belum Dibayar", "Sudah Dibayar", "Status"];
@@ -70,7 +86,7 @@ export const exportSettlementsToPDF = (
   autoTable(doc, {
     head: [tableColumn],
     body: tableRows,
-    startY: 85,
+    startY: 88,
     theme: "striped",
     headStyles: {
       fillColor: [15, 23, 42], // slate-900
