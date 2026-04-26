@@ -50,6 +50,7 @@ interface EntitySummary {
   entityId: string;
   entityName: string;
   commissionRate: number;
+  grossEarnings: number;
   totalUnpaid: number;
   totalPaid: number;
   unpaidCount: number;
@@ -67,6 +68,10 @@ interface SettlementSummary {
   restaurantPaid: number;
   driverUnpaid: number;
   driverPaid: number;
+  restaurantGrossEarnings: number;
+  restaurantPlatformCommission: number;
+  driverGrossEarnings: number;
+  driverPlatformCommission: number;
 }
 
 const normalizePercentToRate = (value: unknown, fallback: number) => {
@@ -310,11 +315,12 @@ export const useCFOSettlementsV2 = () => {
     const map = new Map<string, EntitySummary>();
 
     restaurants.forEach((restaurant) => {
-      map.set(restaurant.id, {
-        entityId: restaurant.id,
-        entityName: restaurant.name || restaurant.restaurantName || "Unknown",
-        commissionRate: resolveEntityCommissionRate(restaurant, "RESTAURANT"),
-        totalUnpaid: 0,
+        map.set(restaurant.id, {
+          entityId: restaurant.id,
+          entityName: restaurant.name || restaurant.restaurantName || "Unknown",
+          commissionRate: resolveEntityCommissionRate(restaurant, "RESTAURANT"),
+          grossEarnings: 0,
+          totalUnpaid: 0,
         totalPaid: 0,
         unpaidCount: 0,
         paidCount: 0,
@@ -329,19 +335,25 @@ export const useCFOSettlementsV2 = () => {
         const existing =
           map.get(record.entityId) ||
           ({
-            entityId: record.entityId,
-            entityName: record.entityName || "Unknown",
-            commissionRate: normalizePercentToRate(
-              record.commissionRate,
-              commissionRates.RESTAURANT
-            ),
-            totalUnpaid: 0,
+              entityId: record.entityId,
+              entityName: record.entityName || "Unknown",
+              commissionRate: normalizePercentToRate(
+                record.commissionRate,
+                commissionRates.RESTAURANT
+              ),
+              grossEarnings: 0,
+              totalUnpaid: 0,
             totalPaid: 0,
             unpaidCount: 0,
             paidCount: 0,
             isBanned: false,
             orders: [],
           } as EntitySummary);
+
+        existing.grossEarnings += Math.max(
+          0,
+          Number(record.orderTotal || 0) - Number(record.deliveryFee || 0)
+        );
 
         if (record.status === "PAID") {
           existing.totalPaid += Number(record.amount || 0);
@@ -368,11 +380,12 @@ export const useCFOSettlementsV2 = () => {
     const map = new Map<string, EntitySummary>();
 
     drivers.forEach((driver) => {
-      map.set(driver.id, {
-        entityId: driver.id,
-        entityName: driver.name || driver.fullName || "Unknown",
-        commissionRate: resolveEntityCommissionRate(driver, "DRIVER"),
-        totalUnpaid: 0,
+        map.set(driver.id, {
+          entityId: driver.id,
+          entityName: driver.name || driver.fullName || "Unknown",
+          commissionRate: resolveEntityCommissionRate(driver, "DRIVER"),
+          grossEarnings: 0,
+          totalUnpaid: 0,
         totalPaid: 0,
         unpaidCount: 0,
         paidCount: 0,
@@ -387,19 +400,22 @@ export const useCFOSettlementsV2 = () => {
         const existing =
           map.get(record.entityId) ||
           ({
-            entityId: record.entityId,
-            entityName: record.entityName || "Unknown",
-            commissionRate: normalizePercentToRate(
-              record.commissionRate,
-              commissionRates.DRIVER
-            ),
-            totalUnpaid: 0,
+              entityId: record.entityId,
+              entityName: record.entityName || "Unknown",
+              commissionRate: normalizePercentToRate(
+                record.commissionRate,
+                commissionRates.DRIVER
+              ),
+              grossEarnings: 0,
+              totalUnpaid: 0,
             totalPaid: 0,
             unpaidCount: 0,
             paidCount: 0,
             isBanned: false,
             orders: [],
           } as EntitySummary);
+
+        existing.grossEarnings += Number(record.deliveryFee || 0);
 
         if (record.status === "PAID") {
           existing.totalPaid += Number(record.amount || 0);
@@ -450,8 +466,16 @@ export const useCFOSettlementsV2 = () => {
       restaurantPaid,
       driverUnpaid,
       driverPaid,
+      restaurantGrossEarnings: commissions
+        .filter((record) => record.type === "RESTAURANT")
+        .reduce((sum, record) => sum + Math.max(0, Number(record.orderTotal || 0) - Number(record.deliveryFee || 0)), 0),
+      restaurantPlatformCommission: restaurantUnpaid + restaurantPaid,
+      driverGrossEarnings: commissions
+        .filter((record) => record.type === "DRIVER")
+        .reduce((sum, record) => sum + Number(record.deliveryFee || 0), 0),
+      driverPlatformCommission: driverUnpaid + driverPaid,
     };
-  }, [restaurantSummaries, driverSummaries]);
+  }, [restaurantSummaries, driverSummaries, commissions]);
 
   const markAsPaid = useCallback(
     async (entityId: string, type: EntityType): Promise<boolean> => {

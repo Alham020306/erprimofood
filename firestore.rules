@@ -1,217 +1,434 @@
 rules_version = '2';
+
 service cloud.firestore {
+
   match /databases/{database}/documents {
 
+
+
     // ============================================================
+
     // HELPER FUNCTIONS
+
     // ============================================================
+
+
 
     function isAuthenticated() {
+
       return request.auth != null;
+
     }
+
+
 
     // Check C-Level roles in direksi database (direction_users collection)
+
     function isCLevelDireksi() {
+
       return isAuthenticated() && 
+
         exists(/databases/(direksi)/documents/direction_users/$(request.auth.uid)) &&
+
         get(/databases/(direksi)/documents/direction_users/$(request.auth.uid)).data.primaryRole in [
+
           'ADMIN', 'CEO', 'COO', 'CFO', 'CTO', 'CMO', 'HR', 'SECRETARY'
+
         ];
+
     }
+
+
 
     function isCOODireksi() {
+
       return isAuthenticated() && 
+
         exists(/databases/(direksi)/documents/direction_users/$(request.auth.uid)) &&
+
         get(/databases/(direksi)/documents/direction_users/$(request.auth.uid)).data.primaryRole == 'COO';
+
     }
+
+
 
     function isCTODireksi() {
+
       return isAuthenticated() && 
+
         exists(/databases/(direksi)/documents/direction_users/$(request.auth.uid)) &&
+
         get(/databases/(direksi)/documents/direction_users/$(request.auth.uid)).data.primaryRole == 'CTO';
+
     }
+
+
 
     function isCFODireksi() {
+
       return isAuthenticated() && 
+
         exists(/databases/(direksi)/documents/direction_users/$(request.auth.uid)) &&
+
         get(/databases/(direksi)/documents/direction_users/$(request.auth.uid)).data.primaryRole == 'CFO';
+
     }
+
+
 
     function isHRDireksi() {
+
       return isAuthenticated() && 
+
         exists(/databases/(direksi)/documents/direction_users/$(request.auth.uid)) &&
+
         get(/databases/(direksi)/documents/direction_users/$(request.auth.uid)).data.primaryRole in ['HR', 'ERP_HR'];
+
     }
+
+
 
     function isCMODireksi() {
+
       return isAuthenticated() && 
+
         exists(/databases/(direksi)/documents/direction_users/$(request.auth.uid)) &&
+
         get(/databases/(direksi)/documents/direction_users/$(request.auth.uid)).data.primaryRole == 'CMO';
+
     }
+
+
 
     function isCEODireksi() {
+
       return isAuthenticated() && 
+
         exists(/databases/(direksi)/documents/direction_users/$(request.auth.uid)) &&
+
         get(/databases/(direksi)/documents/direction_users/$(request.auth.uid)).data.primaryRole == 'CEO';
+
     }
+
+
 
     function isADMINDireksi() {
+
       return isAuthenticated() && 
+
         exists(/databases/(direksi)/documents/direction_users/$(request.auth.uid)) &&
+
         get(/databases/(direksi)/documents/direction_users/$(request.auth.uid)).data.primaryRole == 'ADMIN';
+
     }
+
+
 
     // Combined C-Level check (direksi + default database ERP roles)
+
     function isCLevel() {
+
       return isCLevelDireksi() || 
+
         (isAuthenticated() && request.auth.token.role in [
+
           'SUPER_ADMIN', 'ERP_SUPER_ADMIN', 'ERP_HR', 'ERP_FINANCE', 'ERP_MANAGER',
+
           'COO', 'CTO', 'CFO', 'HR', 'CMO', 'DRIVER_OPS', 'MERCHANT_OPS', 'TECH_TEAM', 'FINANCE'
+
         ]);
+
     }
+
+
 
     function isCOO() {
+
       return isCOODireksi() || (isAuthenticated() && (
+
         request.auth.token.role == 'COO' ||
+
         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+
          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'COO')
+
       ));
+
     }
+
+
 
     function isCTO() {
+
       return isCTODireksi() || (isAuthenticated() && (
+
         request.auth.token.role == 'CTO' ||
+
         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+
          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'CTO')
+
       ));
+
     }
+
+
 
     function isCFO() {
+
       return isCFODireksi() || (isAuthenticated() && (
+
         request.auth.token.role == 'CFO' ||
+
         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+
          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'CFO')
+
       ));
+
     }
+
+
 
     function isHR() {
+
       return isHRDireksi() || (isAuthenticated() && (
+
         request.auth.token.role in ['HR', 'ERP_HR'] ||
+
         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+
          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['HR', 'ERP_HR'])
+
       ));
+
     }
+
+
 
     function isCMO() {
+
       return isCMODireksi() || (isAuthenticated() && (
+
         request.auth.token.role == 'CMO' ||
+
         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+
          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'CMO')
+
       ));
+
     }
+
+
 
     function isCEO() {
+
       return isCEODireksi() || (isAuthenticated() && (
+
         request.auth.token.role == 'CEO' ||
+
         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+
          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'CEO')
+
       ));
+
     }
+
+
 
     function isADMIN() {
+
       return isADMINDireksi() || (isAuthenticated() && (
+
         request.auth.token.role == 'ADMIN' ||
+
         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+
          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'ADMIN')
+
       ));
+
     }
+
+
 
     function isSuperAdmin() {
+
       return isAuthenticated() && (
+
         request.auth.token.role == 'SUPER_ADMIN' ||
+
         request.auth.token.admin == true ||
+
         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+
          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'SUPER_ADMIN')
+
       );
+
     }
+
+
 
     function isERP() {
+
       return isCOO() || isCTO() || isCFO() || isHR() || isCMO() || isCEO() || isADMIN() || isCLevel() ||
+
         (isAuthenticated() && request.auth.token.role in [
+
           'ERP_SUPER_ADMIN', 'ERP_HR', 'ERP_FINANCE', 'ERP_MANAGER',
+
           'DRIVER_OPS', 'MERCHANT_OPS', 'TECH_TEAM', 'FINANCE'
+
         ]);
+
     }
+
+
 
     function isOwner(userId) {
+
       return isAuthenticated() && request.auth.uid == userId;
+
     }
+
+
 
     function isNotBanned() {
+
       return isAuthenticated() && 
+
         (!exists(/databases/$(database)/documents/users/$(request.auth.uid)) ||
+
          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isBanned != true);
+
     }
 
+
+
     // ============================================================
+
     // USERS COLLECTION
+
     // ============================================================
+
     match /users/{userId} {
+
       allow get: if true;
+
       allow list: if true;
+
       
+
       allow create: if isAuthenticated() && (
+
         (request.auth.uid == userId && 
+
          request.resource.data.role in ['CUSTOMER', 'DRIVER', 'RESTAURANT', 'SUPER_ADMIN'] &&
+
          request.resource.data.isBanned == false) ||
+
         isSuperAdmin() || isERP()
+
       );
+
       
+
       allow update: if isAuthenticated() && (
+
         isOwner(userId) ||
+
         isSuperAdmin() || isERP()
+
       );
+
       
+
       allow delete: if isSuperAdmin() || isERP();
+
     }
 
+
+
     // ============================================================
+
     // RESTAURANTS COLLECTION
+
     // ============================================================
+
     match /restaurants/{restaurantId} {
+
       allow read: if true;
+
       allow create: if isSuperAdmin() || isCOO() || isADMIN();
+
       allow update: if isAuthenticated() && (
+
         resource.data.ownerId == request.auth.uid ||
+
         isSuperAdmin() || isCOO() || isADMIN()
+
       );
+
       allow delete: if isSuperAdmin() || isCOO() || isADMIN();
+
     }
 
+
+
     // ============================================================
+
     // DRIVERS COLLECTION
+
     // ============================================================
+
     match /drivers/{driverId} {
+
       allow read: if isAuthenticated();
+
       allow create, update: if isSuperAdmin() || isCOO() || isADMIN();
+
       allow delete: if isSuperAdmin() || isCOO() || isADMIN();
+
     }
 
+
+
     // ============================================================
+
     // ORDERS COLLECTION
-    // ============================================================
-    match /orders/{orderId} {
-      allow read: if isAuthenticated() || isERP();
-      allow create: if isAuthenticated() && isNotBanned();
-      allow update: if isAuthenticated() || isERP();
-      allow delete: if isSuperAdmin() || isERP();
-    }
 
     // ============================================================
-    // CATCH-ALL
-    // ============================================================
-    match /{document=**} {
-      allow read, write: if isSuperAdmin() || isERP();
+
+    match /orders/{orderId} {
+
+      allow read: if isAuthenticated() || isERP();
+
+      allow create: if isAuthenticated() && isNotBanned();
+
+      allow update: if isAuthenticated() || isERP();
+
+      allow delete: if isSuperAdmin() || isERP();
+
     }
+
+
+
+    // ============================================================
+
+    // CATCH-ALL
+
+    // ============================================================
+
+    match /{document=**} {
+
+      allow read, write: if isSuperAdmin() || isERP();
+
+    }
+
   }
+
 }
+

@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle, DollarSign, TrendingUp } from "lucide-react";
+import { AlertTriangle, CheckCircle, DollarSign, Store, Truck, TrendingUp } from "lucide-react";
 import { formatCurrency } from "../utils/formatters";
 
 interface SettlementSummary {
@@ -9,6 +9,10 @@ interface SettlementSummary {
   restaurantPaid: number;
   driverUnpaid: number;
   driverPaid: number;
+  restaurantGrossEarnings: number;
+  restaurantPlatformCommission: number;
+  driverGrossEarnings: number;
+  driverPlatformCommission: number;
 }
 
 type Props = {
@@ -87,6 +91,76 @@ export default function SettlementSummaryCardsV2({ summary, commissionRates }: P
               <span className="opacity-70">Total pendapatan komisi platform</span>
             </div>
           </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-emerald-950 shadow-sm">
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700">
+              <Store size={22} />
+            </div>
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-700/80">
+                Penghasilan Resto
+              </p>
+              <h3 className="mt-1 text-xl font-black">{formatCurrency(summary.restaurantGrossEarnings)}</h3>
+            </div>
+          </div>
+          <p className="mt-3 text-xs text-emerald-800/80">
+            Total bruto merchant dari order completed sebelum komisi platform.
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-indigo-200 bg-indigo-50 p-5 text-indigo-950 shadow-sm">
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-100 text-indigo-700">
+              <DollarSign size={22} />
+            </div>
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-indigo-700/80">
+                Profit dari Resto
+              </p>
+              <h3 className="mt-1 text-xl font-black">{formatCurrency(summary.restaurantPlatformCommission)}</h3>
+            </div>
+          </div>
+          <p className="mt-3 text-xs text-indigo-800/80">
+            Total komisi yang menjadi hak platform dari seluruh merchant.
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-sky-200 bg-sky-50 p-5 text-sky-950 shadow-sm">
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-100 text-sky-700">
+              <Truck size={22} />
+            </div>
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-sky-700/80">
+                Penghasilan Driver
+              </p>
+              <h3 className="mt-1 text-xl font-black">{formatCurrency(summary.driverGrossEarnings)}</h3>
+            </div>
+          </div>
+          <p className="mt-3 text-xs text-sky-800/80">
+            Total bruto pendapatan driver dari ongkir order completed.
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-violet-200 bg-violet-50 p-5 text-violet-950 shadow-sm">
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-100 text-violet-700">
+              <TrendingUp size={22} />
+            </div>
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-violet-700/80">
+                Profit dari Driver
+              </p>
+              <h3 className="mt-1 text-xl font-black">{formatCurrency(summary.driverPlatformCommission)}</h3>
+            </div>
+          </div>
+          <p className="mt-3 text-xs text-violet-800/80">
+            Total komisi yang menjadi hak platform dari seluruh driver.
+          </p>
         </div>
       </div>
 

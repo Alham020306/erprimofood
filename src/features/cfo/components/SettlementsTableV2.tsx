@@ -4,6 +4,7 @@ import { CheckCircle, AlertTriangle, Ban, Eye, CheckSquare } from "lucide-react"
 type EntitySummary = {
   entityId: string;
   entityName: string;
+  grossEarnings: number;
   totalUnpaid: number;
   totalPaid: number;
   unpaidCount: number;
@@ -56,6 +57,9 @@ export default function SettlementsTableV2({ data, entityType, onSelect, onMarkP
               <th className="text-left py-3 px-4 text-xs font-bold text-slate-500 uppercase tracking-wider">
                 {entityLabel}
               </th>
+              <th className="text-right py-3 px-4 text-xs font-bold text-sky-500 uppercase tracking-wider">
+                Penghasilan Kotor
+              </th>
               <th className="text-right py-3 px-4 text-xs font-bold text-rose-500 uppercase tracking-wider">
                 Belum Dibayar
               </th>
@@ -88,6 +92,14 @@ export default function SettlementsTableV2({ data, entityType, onSelect, onMarkP
                       {summary.unpaidCount} transaksi belum bayar
                     </p>
                   )}
+                </td>
+                <td className="py-4 px-4 text-right">
+                  <p className="font-bold text-sky-600">
+                    {formatCurrency(summary.grossEarnings)}
+                  </p>
+                  <p className="mt-0.5 text-xs text-slate-400">
+                    Nilai bruto partner
+                  </p>
                 </td>
                 <td className="py-4 px-4 text-right">
                   <p

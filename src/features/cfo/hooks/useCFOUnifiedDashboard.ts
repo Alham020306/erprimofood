@@ -269,11 +269,105 @@ export const useCFOUnifiedDashboard = () => {
     );
   }, [commissions]);
 
+  const settlementTrend = useMemo(() => {
+    const recentDays = 14;
+    const labels: string[] = [];
+    const dayMap = new Map<
+      string,
+      {
+        label: string;
+        allRevenue: number;
+        allPaid: number;
+        allUnpaid: number;
+        restaurantRevenue: number;
+        restaurantPaid: number;
+        restaurantUnpaid: number;
+        driverRevenue: number;
+        driverPaid: number;
+        driverUnpaid: number;
+      }
+    >();
+
+    for (let offset = recentDays - 1; offset >= 0; offset -= 1) {
+      const date = new Date();
+      date.setHours(0, 0, 0, 0);
+      date.setDate(date.getDate() - offset);
+      const key = date.toISOString().slice(0, 10);
+      const label = date.toLocaleDateString("id-ID", {
+        day: "2-digit",
+        month: "short",
+      });
+      labels.push(key);
+      dayMap.set(key, {
+        label,
+        allRevenue: 0,
+        allPaid: 0,
+        allUnpaid: 0,
+        restaurantRevenue: 0,
+        restaurantPaid: 0,
+        restaurantUnpaid: 0,
+        driverRevenue: 0,
+        driverPaid: 0,
+        driverUnpaid: 0,
+      });
+    }
+
+    commissions.forEach((item) => {
+      const stamp = timestampToNumber(item?.createdAt);
+      if (!stamp) return;
+      const key = new Date(stamp).toISOString().slice(0, 10);
+      const bucket = dayMap.get(key);
+      if (!bucket) return;
+
+      const type = String(item?.type || "").toUpperCase();
+      const amount = safeNumber(item?.amount);
+      const orderTotal = safeNumber(item?.orderTotal);
+      const deliveryFee = safeNumber(item?.deliveryFee);
+      const grossRevenue =
+        type === "RESTAURANT"
+          ? Math.max(0, orderTotal - deliveryFee)
+          : type === "DRIVER"
+          ? deliveryFee
+          : 0;
+
+      bucket.allRevenue += grossRevenue;
+      if (String(item?.status || "").toUpperCase() === "PAID") {
+        bucket.allPaid += amount;
+      } else {
+        bucket.allUnpaid += amount;
+      }
+
+      if (type === "RESTAURANT") {
+        bucket.restaurantRevenue += grossRevenue;
+        if (String(item?.status || "").toUpperCase() === "PAID") {
+          bucket.restaurantPaid += amount;
+        } else {
+          bucket.restaurantUnpaid += amount;
+        }
+      }
+
+      if (type === "DRIVER") {
+        bucket.driverRevenue += grossRevenue;
+        if (String(item?.status || "").toUpperCase() === "PAID") {
+          bucket.driverPaid += amount;
+        } else {
+          bucket.driverUnpaid += amount;
+        }
+      }
+    });
+
+    return labels
+      .map((key) => dayMap.get(key))
+      .filter(Boolean)
+      .map((item) => item!);
+  }, [commissions]);
+
   return {
     loading: summaryLoading || ordersLoading,
     metrics,
     orderAnalysis,
     settlementSummary,
+    settlementTrend,
     commissionRates,
     rawOrders: orders,
   };

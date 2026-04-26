@@ -523,7 +523,12 @@ export default function MerchantManagementPage({ user }: Props) {
           </div>
 
           <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-            {filteredItems.map((item) => (
+            {filteredItems.map((item) => {
+              const selected = selectedMerchant?.id === item.id;
+              const operationalOpen = isMerchantOperational(item);
+              const visuallyClosed = !item.isBanned && !operationalOpen;
+
+              return (
               <button
                 key={item.id}
                 type="button"
@@ -532,31 +537,59 @@ export default function MerchantManagementPage({ user }: Props) {
                   setDetailTab("overview");
                 }}
                 className={`overflow-hidden rounded-[30px] border text-left transition-all ${
-                  selectedMerchant?.id === item.id
+                  selected
                     ? "border-slate-950 bg-slate-950 text-white shadow-2xl"
+                    : visuallyClosed
+                    ? "border-slate-200 bg-slate-100/95 text-slate-700 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-lg"
                     : "border-slate-100 bg-white hover:-translate-y-0.5 hover:border-orange-200 hover:shadow-lg"
                 }`}
               >
-                <div className={`h-1 w-full ${item.isBanned ? "bg-rose-500" : "bg-orange-500"}`} />
+                <div
+                  className={`h-1 w-full ${
+                    item.isBanned
+                      ? "bg-rose-500"
+                      : operationalOpen
+                      ? "bg-emerald-500"
+                      : "bg-slate-300"
+                  }`}
+                />
                 <div className="p-6">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex items-center gap-4">
-                      <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-[20px] border border-slate-200 bg-slate-100">
+                      <div
+                        className={`flex h-16 w-16 items-center justify-center overflow-hidden rounded-[20px] border ${
+                          selected
+                            ? "border-slate-700 bg-slate-800"
+                            : visuallyClosed
+                            ? "border-slate-300 bg-slate-200"
+                            : "border-slate-200 bg-slate-100"
+                        }`}
+                      >
                         {item.image ? (
                           <img
                             src={item.image}
                             alt={item.name || "Merchant"}
-                            className="h-full w-full object-cover"
+                            className={`h-full w-full object-cover ${
+                              visuallyClosed && !selected ? "grayscale opacity-70" : ""
+                            }`}
                           />
                         ) : (
-                          <div className="text-xl font-black text-slate-400">
+                          <div
+                            className={`text-xl font-black ${
+                              selected ? "text-slate-300" : "text-slate-400"
+                            }`}
+                          >
                             {String(item?.name || "R").slice(0, 1).toUpperCase()}
                           </div>
                         )}
                       </div>
                       <div>
                         <div className="text-base font-black tracking-tight">{item.name || "-"}</div>
-                        <div className="mt-1 text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">
+                        <div
+                          className={`mt-1 text-[11px] font-black uppercase tracking-[0.2em] ${
+                            selected ? "text-slate-400" : visuallyClosed ? "text-slate-500" : "text-slate-400"
+                          }`}
+                        >
                           {item.ownerId || item.id || "-"}
                         </div>
                       </div>
@@ -565,38 +598,49 @@ export default function MerchantManagementPage({ user }: Props) {
                     <div
                       className={`rounded-full px-3 py-1 text-[10px] font-black ${
                         item.isBanned
-                          ? selectedMerchant?.id === item.id
+                          ? selected
                             ? "bg-rose-800 text-rose-200"
                             : "bg-rose-100 text-rose-700"
-                          : isMerchantOperational(item)
-                          ? selectedMerchant?.id === item.id
+                          : operationalOpen
+                          ? selected
                             ? "bg-emerald-800 text-emerald-200"
                             : "bg-emerald-100 text-emerald-700"
-                          : selectedMerchant?.id === item.id
-                          ? "bg-amber-800 text-amber-200"
-                          : "bg-amber-100 text-amber-700"
+                          : selected
+                          ? "bg-slate-700 text-slate-200"
+                          : "bg-slate-200 text-slate-600"
                       }`}
                     >
-                      {getMerchantOperationalMessage(item)}
+                      {item.isBanned ? "Banned" : operationalOpen ? "Sedang Buka" : "Tutup"}
                     </div>
                   </div>
 
                   <div
                     className={`mt-4 rounded-2xl p-4 text-sm ${
-                      selectedMerchant?.id === item.id
+                      selected
                         ? "bg-slate-800 text-slate-300"
+                        : visuallyClosed
+                        ? "bg-slate-200/80 text-slate-600"
                         : "bg-slate-50 text-slate-600"
                     }`}
                   >
                     <div>{item.phone || "-"}</div>
                     <div className="mt-2 line-clamp-2">{item.address || "-"}</div>
+                    <div className="mt-3 text-[11px] font-semibold uppercase tracking-[0.16em]">
+                      {item.isBanned
+                        ? "Banned"
+                        : operationalOpen
+                        ? "Status pelanggan: sedang buka"
+                        : getMerchantOperationalMessage(item)}
+                    </div>
                   </div>
 
                   <div className="mt-4 flex flex-wrap gap-2 text-[11px]">
                     <span
                       className={`rounded-full px-3 py-1 font-bold ${
-                        selectedMerchant?.id === item.id
+                        selected
                           ? "bg-slate-800 text-slate-200"
+                          : visuallyClosed
+                          ? "bg-slate-200 text-slate-600"
                           : "bg-slate-100 text-slate-500"
                       }`}
                     >
@@ -604,8 +648,10 @@ export default function MerchantManagementPage({ user }: Props) {
                     </span>
                     <span
                       className={`rounded-full px-3 py-1 font-bold ${
-                        selectedMerchant?.id === item.id
+                        selected
                           ? "bg-slate-800 text-slate-200"
+                          : visuallyClosed
+                          ? "bg-slate-200 text-slate-600"
                           : "bg-slate-100 text-slate-500"
                       }`}
                     >
@@ -614,7 +660,8 @@ export default function MerchantManagementPage({ user }: Props) {
                   </div>
                 </div>
               </button>
-            ))}
+            );
+            })}
           </div>
 
           {!loading && !filteredItems.length ? (
