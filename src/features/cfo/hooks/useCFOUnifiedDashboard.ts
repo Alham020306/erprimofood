@@ -292,7 +292,10 @@ export const useCFOUnifiedDashboard = () => {
       const date = new Date();
       date.setHours(0, 0, 0, 0);
       date.setDate(date.getDate() - offset);
-      const key = date.toISOString().slice(0, 10);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      const key = `${year}-${month}-${day}`;
       const label = date.toLocaleDateString("id-ID", {
         day: "2-digit",
         month: "short",
@@ -315,7 +318,11 @@ export const useCFOUnifiedDashboard = () => {
     commissions.forEach((item) => {
       const stamp = timestampToNumber(item?.createdAt);
       if (!stamp) return;
-      const key = new Date(stamp).toISOString().slice(0, 10);
+      const d = new Date(stamp);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      const key = `${year}-${month}-${day}`;
       const bucket = dayMap.get(key);
       if (!bucket) return;
 

@@ -4,7 +4,8 @@ import SettlementSummaryCardsV2 from "../components/SettlementSummaryCardsV2";
 import SettlementsTableV2 from "../components/SettlementsTableV2";
 import SettlementDetailModal from "../components/SettlementDetailModal";
 import SettlementConfirmModal from "../components/SettlementConfirmModal";
-import { Download, Building, Truck, PieChart, AlertCircle } from "lucide-react";
+import { Download, Building, Truck, PieChart, AlertCircle, FileText } from "lucide-react";
+import { exportSettlementsToPDF } from "../utils/pdfExport";
 
 interface Props {
   user: any;
@@ -90,6 +91,11 @@ export default function CFOSettlementsPageV2({ user }: Props) {
     URL.revokeObjectURL(url);
   };
 
+  const handleExportPDF = () => {
+    const currentEntities = entityType === "RESTAURANT" ? restaurantSummaries : driverSummaries;
+    exportSettlementsToPDF(entityType, user, summary, currentEntities);
+  };
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -123,12 +129,20 @@ export default function CFOSettlementsPageV2({ user }: Props) {
               Kelola komisi dan pembayaran ke restaurant & driver
             </p>
           </div>
-          <button
-            onClick={exportToJSON}
-            className="relative z-10 inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/10 px-4 py-2 text-sm font-bold text-white transition hover:bg-white/15"
-          >
-            <Download size={16} /> Export JSON
-          </button>
+          <div className="flex items-center gap-2 relative z-10">
+            <button
+              onClick={handleExportPDF}
+              className="inline-flex items-center gap-2 rounded-2xl border border-rose-500/30 bg-rose-500/20 px-4 py-2 text-sm font-bold text-rose-100 transition hover:bg-rose-500/30 hover:border-rose-500/50"
+            >
+              <FileText size={16} /> Export PDF
+            </button>
+            <button
+              onClick={exportToJSON}
+              className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/10 px-4 py-2 text-sm font-bold text-white transition hover:bg-white/15"
+            >
+              <Download size={16} /> Export JSON
+            </button>
+          </div>
         </div>
       </section>
 
