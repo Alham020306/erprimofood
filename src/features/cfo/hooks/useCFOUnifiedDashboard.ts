@@ -3,6 +3,16 @@ import { collection, doc, onSnapshot } from "firebase/firestore";
 import { dbMain } from "../../../core/firebase/firebaseMain";
 import { subscribeSummaryDoc } from "../../shared/services/directorSummaryService";
 
+export type CFOTimeFilter = "week" | "month" | "year";
+
+type TrendPoint = {
+  label: string;
+  sortKey: number;
+  bucketKey: string;
+  orders: number;
+  revenue: number;
+};
+
 const safeNumber = (value: any, fallback = 0) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
@@ -16,16 +26,121 @@ const normalizePercentToRate = (value: unknown, fallback: number) => {
 
 const timestampToNumber = (value: any) => {
   if (typeof value === "number") return value;
+  if (typeof value === "string") {
+    const direct = Date.parse(value);
+    if (Number.isFinite(direct)) return direct;
+    const numeric = Number(value);
+    if (Number.isFinite(numeric)) return numeric;
+    return 0;
+  }
   if (typeof value?.toMillis === "function") return value.toMillis();
   if (typeof value?.seconds === "number") return value.seconds * 1000;
   return safeNumber(value, 0);
 };
+
+const getOrderTimestamp = (order: any) =>
+  timestampToNumber(
+    order?.timestamp ??
+      order?.createdAt ??
+      order?.createdAtServer ??
+      order?.updatedAt ??
+      order?.acceptedAt
+  );
 
 const dayLabel = (value: number) =>
   new Date(value).toLocaleDateString("id-ID", { weekday: "short" });
 
 const monthLabel = (value: number) =>
   new Date(value).toLocaleDateString("id-ID", { month: "short" });
+
+const getStartOfWeek = (date: Date) => {
+  const d = new Date(date);
+  const day = d.getDay();
+  const daysToMonday = day === 0 ? 6 : day - 1;
+  d.setDate(d.getDate() - daysToMonday);
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+};
+
+const getStartOfMonth = (date: Date) => {
+  const d = new Date(date);
+  d.setDate(1);
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+};
+
+const getStartOfYear = (date: Date) => {
+  const d = new Date(date);
+  d.setMonth(0, 1);
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+};
+
+const filterOrdersByTime = (orders: any[], filter: CFOTimeFilter) => {
+  const now = Date.now();
+  let startTime = getStartOfWeek(new Date(now));
+
+  if (filter === "month") startTime = getStartOfMonth(new Date(now));
+  if (filter === "year") startTime = getStartOfYear(new Date(now));
+
+  return orders.filter((order: any) => {
+    const stamp = getOrderTimestamp(order);
+    return stamp >= startTime;
+  });
+};
+
+const toDateKey = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const createTrendBuckets = (filter: CFOTimeFilter) => {
+  if (filter === "week") {
+    const labels = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"];
+    const monday = new Date(getStartOfWeek(new Date()));
+    return labels.map((label, index) => {
+      const bucketDate = new Date(monday);
+      bucketDate.setDate(monday.getDate() + index);
+      return {
+        label,
+        sortKey: index,
+        bucketKey: toDateKey(bucketDate),
+        orders: 0,
+        revenue: 0,
+      };
+    });
+  }
+
+  if (filter === "month") {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    const totalDays = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    return Array.from({ length: totalDays }, (_, index) => {
+      const dayNumber = index + 1;
+      const bucketDate = new Date(year, month, dayNumber);
+      const weekday = bucketDate.toLocaleDateString("id-ID", { weekday: "short" });
+      return {
+        label: `${dayNumber} ${weekday}`,
+        sortKey: dayNumber,
+        bucketKey: `${dayNumber}`,
+        orders: 0,
+        revenue: 0,
+      };
+    });
+  }
+
+  const monthLabels = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+  return monthLabels.map((label, index) => ({
+    label,
+    sortKey: index,
+    bucketKey: `${index}`,
+    orders: 0,
+    revenue: 0,
+  }));
+};
 
 export const useCFOUnifiedDashboard = () => {
   const [summaryDoc, setSummaryDoc] = useState<any | null>(null);
@@ -141,7 +256,7 @@ export const useCFOUnifiedDashboard = () => {
       const status = String(order?.status || "").toUpperCase();
       const total = safeNumber(order?.total);
       const deliveryFee = safeNumber(order?.deliveryFee);
-      const stamp = timestampToNumber(order?.timestamp ?? order?.createdAt);
+      const stamp = getOrderTimestamp(order);
 
       if (status === "COMPLETED") {
         stats.completed += 1;
@@ -214,8 +329,7 @@ export const useCFOUnifiedDashboard = () => {
     const latestCompletedOrders = [...completedOrders]
       .sort(
         (a, b) =>
-          timestampToNumber(b?.timestamp ?? b?.createdAt) -
-          timestampToNumber(a?.timestamp ?? a?.createdAt)
+          getOrderTimestamp(b) - getOrderTimestamp(a)
       )
       .slice(0, 8)
       .map((order) => ({
@@ -230,7 +344,7 @@ export const useCFOUnifiedDashboard = () => {
           safeNumber(order.distanceKm) ||
           safeNumber(order.distance) ||
           safeNumber(order.routeDistanceKm),
-        timestamp: timestampToNumber(order?.timestamp ?? order?.createdAt),
+        timestamp: getOrderTimestamp(order),
       }));
 
     return {
@@ -254,6 +368,41 @@ export const useCFOUnifiedDashboard = () => {
       ],
     };
   }, [orders]);
+
+  const getOrderTrendByFilter = useMemo(
+    () => (filter: CFOTimeFilter) => {
+      const filteredOrders = filterOrdersByTime(orders, filter);
+      const grouped = new Map<string, TrendPoint>(
+        createTrendBuckets(filter).map((item) => [item.label, item])
+      );
+
+      filteredOrders.forEach((order) => {
+        const stamp = getOrderTimestamp(order);
+        if (!stamp) return;
+
+        const date = new Date(stamp);
+        let key = "";
+
+        if (filter === "week") {
+          key = toDateKey(date);
+        } else if (filter === "month") {
+          key = `${date.getDate()}`;
+        } else {
+          key = `${date.getMonth()}`;
+        }
+
+        const current = Array.from(grouped.values()).find((item) => item.bucketKey === key);
+        if (!current) return;
+        current.orders += 1;
+        if (String(order?.status || "").toUpperCase() === "COMPLETED") {
+          current.revenue += safeNumber(order?.total || order?.totalPrice || 0);
+        }
+      });
+
+      return Array.from(grouped.values()).sort((a, b) => a.sortKey - b.sortKey);
+    },
+    [orders]
+  );
 
   const settlementSummary = useMemo(() => {
     return commissions.reduce(
@@ -373,6 +522,7 @@ export const useCFOUnifiedDashboard = () => {
     loading: summaryLoading || ordersLoading,
     metrics,
     orderAnalysis,
+    getOrderTrendByFilter,
     settlementSummary,
     settlementTrend,
     commissionRates,

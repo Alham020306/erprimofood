@@ -18,7 +18,31 @@ export default function ReportsBreakdownTable({ data }: Props) {
     <div className="rounded-2xl bg-white p-5 shadow">
       <h2 className="mb-4 text-lg font-bold">Reports Breakdown</h2>
 
-      <div className="overflow-auto">
+      <div className="space-y-3 md:hidden">
+        {data.map((item) => (
+          <div key={item.period} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <p className="font-semibold text-slate-900">{item.period}</p>
+            <div className="mt-3 grid grid-cols-1 gap-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-slate-500">Cash In</span>
+                <span className="font-semibold text-emerald-700">{formatCurrency(item.cashIn)}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-slate-500">Cash Out</span>
+                <span className="font-semibold text-red-700">{formatCurrency(item.cashOut)}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-slate-500">Net</span>
+                <span className={`font-semibold ${item.net >= 0 ? "text-blue-700" : "text-red-700"}`}>
+                  {formatCurrency(item.net)}
+                </span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="hidden overflow-auto md:block">
         <table className="w-full text-sm">
           <thead className="text-left text-slate-500">
             <tr>

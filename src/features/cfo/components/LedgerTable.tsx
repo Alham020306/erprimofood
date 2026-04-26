@@ -19,7 +19,41 @@ export default function LedgerTable({ data, onSelect }: Props) {
     <div className="rounded-2xl bg-white p-5 shadow">
       <h2 className="mb-4 text-lg font-bold">Recent Transactions</h2>
 
-      <div className="overflow-auto">
+      <div className="space-y-3 md:hidden">
+        {data.map((item) => {
+          const isIn = String(item?.type || "").toUpperCase() === "IN";
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => onSelect?.(item)}
+              className="block w-full rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate font-semibold text-slate-900">{item.title ?? "-"}</p>
+                  <p className="mt-1 text-xs text-slate-500">{formatDateOnly(item.date)}</p>
+                </div>
+                <span
+                  className={`rounded-full px-2 py-1 text-[11px] font-semibold ${
+                    isIn ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"
+                  }`}
+                >
+                  {item.type ?? "-"}
+                </span>
+              </div>
+              <div className="mt-3 flex items-center justify-between text-sm">
+                <span className="text-slate-500">{item.category ?? "-"}</span>
+                <span className={isIn ? "font-bold text-emerald-700" : "font-bold text-red-700"}>
+                  {formatCurrency(item.amount)}
+                </span>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="hidden overflow-auto md:block">
         <table className="w-full text-sm">
           <thead className="text-left text-slate-500">
             <tr>

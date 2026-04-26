@@ -50,7 +50,91 @@ export default function SettlementsTableV2({ data, entityType, onSelect, onMarkP
         </h2>
       </div>
 
-      <div className="overflow-x-auto">
+      <div className="space-y-3 p-4 md:hidden">
+        {data.map((summary) => (
+          <div
+            key={summary.entityId}
+            className="rounded-2xl border border-slate-200 bg-slate-50 p-4 shadow-sm"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="truncate font-bold text-slate-900">{summary.entityName}</p>
+                {summary.oldestUnpaidDate && summary.totalUnpaid > 0 && (
+                  <p className="mt-1 text-xs text-rose-500">
+                    Tertua: {formatDate(summary.oldestUnpaidDate)}
+                  </p>
+                )}
+                {summary.unpaidCount > 0 && (
+                  <p className="mt-0.5 text-xs text-slate-400">
+                    {summary.unpaidCount} transaksi belum bayar
+                  </p>
+                )}
+              </div>
+              <div>
+                {summary.isBanned ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-3 py-1 text-[11px] font-bold text-rose-700">
+                    <Ban size={12} /> BANNED
+                  </span>
+                ) : summary.totalUnpaid > 0 ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-3 py-1 text-[11px] font-bold text-amber-700">
+                    <AlertTriangle size={12} /> BELUM BAYAR
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1 text-[11px] font-bold text-emerald-700">
+                    <CheckCircle size={12} /> LUNAS
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div className="rounded-xl bg-white p-3">
+                <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
+                  Penghasilan Kotor
+                </div>
+                <p className="mt-2 font-bold text-sky-600">
+                  {formatCurrency(summary.grossEarnings)}
+                </p>
+              </div>
+              <div className="rounded-xl bg-white p-3">
+                <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
+                  Belum Dibayar
+                </div>
+                <p className={`mt-2 font-bold ${summary.totalUnpaid > 0 ? "text-rose-600" : "text-slate-400"}`}>
+                  {formatCurrency(summary.totalUnpaid)}
+                </p>
+              </div>
+              <div className="rounded-xl bg-white p-3">
+                <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
+                  Terbayar
+                </div>
+                <p className="mt-2 font-bold text-emerald-600">
+                  {formatCurrency(summary.totalPaid)}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              {summary.totalUnpaid > 0 && !summary.isBanned && (
+                <button
+                  onClick={() => onMarkPaid?.(summary.entityId)}
+                  className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-emerald-700"
+                >
+                  <CheckSquare size={14} /> Bayar
+                </button>
+              )}
+              <button
+                onClick={() => onSelect?.(summary)}
+                className="inline-flex items-center gap-1 rounded-lg bg-slate-200 px-3 py-2 text-xs font-bold text-slate-700 transition-colors hover:bg-slate-300"
+              >
+                <Eye size={14} /> Detail
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="hidden overflow-x-auto md:block">
         <table className="w-full">
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50/50">

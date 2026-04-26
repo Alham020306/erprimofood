@@ -105,7 +105,7 @@ export default function CFOFundRequestsPage({ user }: Props) {
       </section>
 
       {/* Daily Summary dengan Source Breakdown */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
           <div className="flex items-center gap-2 text-sm font-medium text-emerald-700">
             <ArrowDownRight size={16} />
@@ -167,7 +167,8 @@ export default function CFOFundRequestsPage({ user }: Props) {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 border-b border-slate-200">
+      <div className="overflow-x-auto border-b border-slate-200">
+        <div className="flex min-w-max gap-2">
         {[
           { key: "requests", label: "My Requests", count: myRequests.length },
           { key: "pending", label: "Pending Approval", count: pendingApprovals.length },
@@ -189,6 +190,7 @@ export default function CFOFundRequestsPage({ user }: Props) {
             </span>
           </button>
         ))}
+        </div>
       </div>
 
       {/* Content */}
@@ -290,59 +292,106 @@ export default function CFOFundRequestsPage({ user }: Props) {
                 <p>Belum ada transaksi hari ini</p>
               </div>
             ) : (
-              <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
-                <table className="w-full">
-                  <thead className="bg-slate-50">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Type</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Description</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Source</th>
-                      <th className="px-4 py-3 text-right text-xs font-semibold text-slate-600">Amount</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Reference</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {transactions.map((trx: any) => (
-                      <tr key={trx.id}>
-                        <td className="px-4 py-3">
-                          <span className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs ${
-                            trx.type === "IN" 
-                              ? "bg-emerald-100 text-emerald-700" 
-                              : "bg-rose-100 text-rose-700"
-                          }`}>
-                            {trx.type === "IN" ? <ArrowDownRight size={12} /> : <ArrowUpRight size={12} />}
-                            {trx.type}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-sm text-slate-700">
-                          {trx.description}
+              <>
+                <div className="space-y-3 md:hidden">
+                  {transactions.map((trx: any) => (
+                    <div key={trx.id} className="rounded-2xl border border-slate-200 bg-white p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="font-medium text-slate-900">{trx.description}</p>
                           {trx.title && trx.title !== trx.description && (
                             <div className="text-xs text-slate-500">{trx.title}</div>
                           )}
-                        </td>
-                        <td className="px-4 py-3">
+                        </div>
+                        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs ${
+                          trx.type === "IN" ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"
+                        }`}>
+                          {trx.type === "IN" ? <ArrowDownRight size={12} /> : <ArrowUpRight size={12} />}
+                          {trx.type}
+                        </span>
+                      </div>
+                      <div className="mt-3 grid grid-cols-1 gap-2 text-sm">
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-500">Source</span>
                           <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs ${
-                            trx.source === "OPERATIONAL"
-                              ? "bg-blue-100 text-blue-700"
-                              : "bg-purple-100 text-purple-700"
+                            trx.source === "OPERATIONAL" ? "bg-blue-100 text-blue-700" : "bg-purple-100 text-purple-700"
                           }`}>
                             {trx.source === "OPERATIONAL" ? <Database size={10} /> : <User size={10} />}
                             {trx.source === "OPERATIONAL" ? "Operational" : "Manual"}
                           </span>
-                        </td>
-                        <td className="px-4 py-3 text-right text-sm font-medium text-slate-900">
-                          {formatCurrency(trx.amount)}
-                        </td>
-                        <td className="px-4 py-3 text-xs text-slate-500">
-                          {trx.processedBy && <div className="text-slate-600">By: {trx.processedBy}</div>}
-                          {trx.reference && <div>{trx.reference}</div>}
-                          {!trx.processedBy && !trx.reference && "-"}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-500">Amount</span>
+                          <span className="font-semibold text-slate-900">{formatCurrency(trx.amount)}</span>
+                        </div>
+                        <div className="flex items-start justify-between gap-3">
+                          <span className="text-slate-500">Reference</span>
+                          <div className="text-right text-xs text-slate-500">
+                            {trx.processedBy && <div className="text-slate-600">By: {trx.processedBy}</div>}
+                            {trx.reference && <div>{trx.reference}</div>}
+                            {!trx.processedBy && !trx.reference && "-"}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="hidden overflow-hidden rounded-2xl border border-slate-200 bg-white md:block">
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-slate-50">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Type</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Description</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Source</th>
+                          <th className="px-4 py-3 text-right text-xs font-semibold text-slate-600">Amount</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Reference</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {transactions.map((trx: any) => (
+                          <tr key={trx.id}>
+                            <td className="px-4 py-3">
+                              <span className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs ${
+                                trx.type === "IN" 
+                                  ? "bg-emerald-100 text-emerald-700" 
+                                  : "bg-rose-100 text-rose-700"
+                              }`}>
+                                {trx.type === "IN" ? <ArrowDownRight size={12} /> : <ArrowUpRight size={12} />}
+                                {trx.type}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-sm text-slate-700">
+                              {trx.description}
+                              {trx.title && trx.title !== trx.description && (
+                                <div className="text-xs text-slate-500">{trx.title}</div>
+                              )}
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs ${
+                                trx.source === "OPERATIONAL"
+                                  ? "bg-blue-100 text-blue-700"
+                                  : "bg-purple-100 text-purple-700"
+                              }`}>
+                                {trx.source === "OPERATIONAL" ? <Database size={10} /> : <User size={10} />}
+                                {trx.source === "OPERATIONAL" ? "Operational" : "Manual"}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-right text-sm font-medium text-slate-900">
+                              {formatCurrency(trx.amount)}
+                            </td>
+                            <td className="px-4 py-3 text-xs text-slate-500">
+                              {trx.processedBy && <div className="text-slate-600">By: {trx.processedBy}</div>}
+                              {trx.reference && <div>{trx.reference}</div>}
+                              {!trx.processedBy && !trx.reference && "-"}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </>
             )}
           </>
         )}
