@@ -16,6 +16,7 @@ import { useState } from "react";
 import { useCFOUnifiedDashboard } from "../hooks/useCFOUnifiedDashboard";
 import { formatCurrency, formatNumber } from "../utils/formatters";
 import CFOOrderAnalyticsChart from "../components/CFOOrderAnalyticsChart";
+import CFOSyncedCustomerRegistrationChart from "../components/CFOSyncedCustomerRegistrationChart";
 import SettlementTrendLineChart from "../components/SettlementTrendLineChart";
 
 const CompactMetric = ({
@@ -104,6 +105,7 @@ export default function CFODashboardPage({ onNavigate }: Props) {
     metrics,
     orderAnalysis,
     getOrderTrendByFilter,
+    getSyncedCustomerRegistrationTrendByFilter,
     settlementSummary,
     settlementTrend,
     commissionRates,
@@ -331,6 +333,32 @@ export default function CFODashboardPage({ onNavigate }: Props) {
 
         <div className="mt-6">
           <CFOOrderAnalyticsChart data={getOrderTrendByFilter(analyticsTimeFilter)} />
+        </div>
+      </section>
+
+      <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <div className="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">
+              Synced Customer Growth
+            </div>
+            <h3 className="mt-2 text-xl font-black text-slate-900">
+              Registrasi Customer dari Sync
+            </h3>
+            <p className="mt-1 text-sm text-slate-500">
+              Grafik ini membaca `sync_users` dan hanya menghitung user dengan role `CUSTOMER`.
+            </p>
+          </div>
+
+          <div className="rounded-full bg-violet-50 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-violet-600">
+            Mode hemat read
+          </div>
+        </div>
+
+        <div className="mt-6">
+          <CFOSyncedCustomerRegistrationChart
+            data={getSyncedCustomerRegistrationTrendByFilter(analyticsTimeFilter)}
+          />
         </div>
       </section>
 

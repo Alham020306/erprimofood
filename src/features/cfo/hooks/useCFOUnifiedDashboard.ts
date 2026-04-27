@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { collection, doc, onSnapshot } from "firebase/firestore";
 import { dbMain } from "../../../core/firebase/firebaseMain";
+import { dbCLevel } from "../../../core/firebase/firebaseCLevel";
 import { subscribeSummaryDoc } from "../../shared/services/directorSummaryService";
 
 export type CFOTimeFilter = "week" | "month" | "year";
@@ -11,6 +12,13 @@ type TrendPoint = {
   bucketKey: string;
   orders: number;
   revenue: number;
+};
+
+type RegistrationTrendPoint = {
+  label: string;
+  sortKey: number;
+  bucketKey: string;
+  registrations: number;
 };
 
 const safeNumber = (value: any, fallback = 0) => {
@@ -45,6 +53,16 @@ const getOrderTimestamp = (order: any) =>
       order?.createdAtServer ??
       order?.updatedAt ??
       order?.acceptedAt
+  );
+
+const getUserRegistrationTimestamp = (user: any) =>
+  timestampToNumber(
+    user?.termsAcceptedAt ??
+      user?.createdAt ??
+      user?.createdAtServer ??
+      user?.activatedAt ??
+      user?.syncedAt ??
+      user?.updatedAt
   );
 
 const dayLabel = (value: number) =>
@@ -142,11 +160,41 @@ const createTrendBuckets = (filter: CFOTimeFilter) => {
   }));
 };
 
+const createRegistrationTrendBuckets = (filter: Exclude<CFOTimeFilter, "week">) => {
+  if (filter === "month") {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    const totalDays = new Date(year, month + 1, 0).getDate();
+    return Array.from({ length: totalDays }, (_, index) => {
+      const dayNumber = index + 1;
+      const bucketDate = new Date(year, month, dayNumber);
+      const weekday = bucketDate.toLocaleDateString("id-ID", { weekday: "short" });
+      return {
+        label: `${dayNumber} ${weekday}`,
+        sortKey: dayNumber,
+        bucketKey: `${dayNumber}`,
+        registrations: 0,
+      };
+    });
+  }
+
+  const monthLabels = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+  return monthLabels.map((label, index) => ({
+    label,
+    sortKey: index,
+    bucketKey: `${index}`,
+    registrations: 0,
+  }));
+};
+
 export const useCFOUnifiedDashboard = () => {
   const [summaryDoc, setSummaryDoc] = useState<any | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(true);
   const [orders, setOrders] = useState<any[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(true);
+  const [syncedUsers, setSyncedUsers] = useState<any[]>([]);
+  const [syncedUsersLoading, setSyncedUsersLoading] = useState(true);
   const [systemConfig, setSystemConfig] = useState<any | null>(null);
   const [commissions, setCommissions] = useState<any[]>([]);
 
@@ -179,6 +227,23 @@ export const useCFOUnifiedDashboard = () => {
       () => setSystemConfig(null)
     );
 
+    const unsubSyncedUsers = onSnapshot(
+      collection(dbCLevel, "sync_users"),
+      (snap) => {
+        setSyncedUsers(
+          snap.docs
+            .filter((item) => item.id !== "sync_meta")
+            .map((item) => ({ id: item.id, ...item.data() }))
+        );
+        setSyncedUsersLoading(false);
+      },
+      (error) => {
+        console.error("Sync users subscription error:", error);
+        setSyncedUsers([]);
+        setSyncedUsersLoading(false);
+      }
+    );
+
     const unsubCommissions = onSnapshot(
       collection(dbMain, "commissions"),
       (snap) => setCommissions(snap.docs.map((item) => ({ id: item.id, ...item.data() }))),
@@ -188,6 +253,7 @@ export const useCFOUnifiedDashboard = () => {
     return () => {
       unsubOrders();
       unsubConfig();
+      unsubSyncedUsers();
       unsubCommissions();
     };
   }, []);
@@ -404,6 +470,34 @@ export const useCFOUnifiedDashboard = () => {
     [orders]
   );
 
+  const getSyncedCustomerRegistrationTrendByFilter = useMemo(
+    () => (filter: Exclude<CFOTimeFilter, "week">) => {
+      const now = Date.now();
+      let startTime = getStartOfMonth(new Date(now));
+      if (filter === "year") startTime = getStartOfYear(new Date(now));
+
+      const grouped = new Map<string, RegistrationTrendPoint>(
+        createRegistrationTrendBuckets(filter).map((item) => [item.label, item])
+      );
+
+      syncedUsers
+        .filter((user) => String(user?.role || "").toUpperCase() === "CUSTOMER")
+        .forEach((user) => {
+          const stamp = getUserRegistrationTimestamp(user);
+          if (!stamp || stamp < startTime) return;
+
+          const date = new Date(stamp);
+          const key = filter === "month" ? `${date.getDate()}` : `${date.getMonth()}`;
+          const current = Array.from(grouped.values()).find((item) => item.bucketKey === key);
+          if (!current) return;
+          current.registrations += 1;
+        });
+
+      return Array.from(grouped.values()).sort((a, b) => a.sortKey - b.sortKey);
+    },
+    [syncedUsers]
+  );
+
   const settlementSummary = useMemo(() => {
     return commissions.reduce(
       (acc, item) => {
@@ -519,10 +613,11 @@ export const useCFOUnifiedDashboard = () => {
   }, [commissions]);
 
   return {
-    loading: summaryLoading || ordersLoading,
+    loading: summaryLoading || ordersLoading || syncedUsersLoading,
     metrics,
     orderAnalysis,
     getOrderTrendByFilter,
+    getSyncedCustomerRegistrationTrendByFilter,
     settlementSummary,
     settlementTrend,
     commissionRates,

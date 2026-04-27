@@ -251,8 +251,10 @@ const buildUserSyncPayload = (id: string, data: Record<string, any>) =>
     updateVersion: asText(data.updateVersion, 60),
     lastUpdateCheck: data.lastUpdateCheck || null,
     activatedAt: data.activatedAt || null,
+    termsAcceptedAt: data.termsAcceptedAt || null,
     lastSeenAt: data.lastSeenAt || null,
     createdAt: data.createdAt || null,
+    createdAtServer: data.createdAtServer || null,
     updatedAt: data.updatedAt || data.lastUpdatedAt || null,
     latitude:
       typeof data.latitude === "number"
